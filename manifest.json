@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Assistant",
+  "version": "1.0",
+  "description": "Uma extensão para interagir com o YouTube",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "webRequest",
+    "*://*.youtube.com/*",
+    "*://*.googlevideo.com/*"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "*://*.googlevideo.com/*",
+    "*://*.deepseek.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*", "*://*.deepseek.com/*", "*://*.google.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  }
+}
