@@ -19,6 +19,323 @@ function checkThumbnails() {
   return thumbnails.length > 0;
 }
 
+// Configuração da API Gemini
+const GEMINI_API_KEY = 'AIzaSyCcTCBbpj8Dllf8fmhPngaG7PQbTJoTqck';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+// Função para fazer request para Gemini API
+async function callGeminiAPI(prompt) {
+  try {
+    console.log('[Gemini] Fazendo request para API...');
+    
+    const response = await fetch(GEMINI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[Gemini] Resposta recebida:', data);
+    
+    // Extrair texto da resposta
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      throw new Error('Resposta vazia do Gemini');
+    }
+    
+    return text;
+  } catch (error) {
+    console.error('[Gemini] Erro na API:', error);
+    throw error;
+  }
+}
+
+// Função para renderizar markdown
+function renderMarkdown(text) {
+  // Converter markdown básico para HTML
+  let html = text
+    // Headers (processar antes de outros elementos)
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    // Bold (processar antes de italic)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.*?)__/g, '<strong>$1</strong>')
+    // Italic (processar depois de bold)
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>')
+    // Line breaks duplos (parágrafos)
+    .replace(/\n\n/g, '</p><p>')
+    // Lists (processar antes de line breaks simples)
+    .replace(/^[\s]*[-*+]\s+(.+)$/gm, '<li>$1</li>')
+    .replace(/^[\s]*\d+\.\s+(.+)$/gm, '<li class="numbered">$1</li>')
+    // Line breaks simples
+    .replace(/\n/g, '<br>');
+  
+  // Agrupar listas
+  html = html.replace(/(<li[^>]*>.*?<\/li>)(\s*<li[^>]*>.*?<\/li>)*/g, (match) => {
+    if (match.includes('class="numbered"')) {
+      return '<ol>' + match.replace(/class="numbered"/g, '') + '</ol>';
+    } else {
+      return '<ul>' + match + '</ul>';
+    }
+  });
+  
+  // Wrap in paragraphs se não houver elementos de bloco
+  if (!html.includes('<p>') && !html.includes('<h1>') && !html.includes('<h2>') && !html.includes('<h3>')) {
+    html = '<p>' + html + '</p>';
+  }
+  
+  return html;
+}
+
+// Função para criar o menu lateral
+function createSideMenu() {
+  // Verificar se o menu já existe
+  if (document.getElementById('youtube-summary-menu')) {
+    return document.getElementById('youtube-summary-menu');
+  }
+
+  // Criar overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'youtube-summary-overlay';
+  overlay.className = 'youtube-summary-overlay';
+  
+  // Criar menu
+  const menu = document.createElement('div');
+  menu.id = 'youtube-summary-menu';
+  menu.className = 'youtube-summary-menu';
+  
+  // Header do menu
+  const header = document.createElement('div');
+  header.className = 'youtube-summary-header';
+  header.innerHTML = `
+    <h3>📝 Resumo do Vídeo</h3>
+    <button id="youtube-summary-close" class="youtube-summary-close">×</button>
+  `;
+  
+  // Conteúdo do menu
+  const content = document.createElement('div');
+  content.className = 'youtube-summary-content';
+  content.innerHTML = `
+    <div id="youtube-summary-loading" class="youtube-summary-loading">
+      <div class="youtube-summary-spinner"></div>
+      <p>Gerando resumo...</p>
+    </div>
+    <div id="youtube-summary-result" class="youtube-summary-result" style="display: none;">
+      <!-- Resultado será inserido aqui -->
+    </div>
+  `;
+  
+  // Footer com input para novo prompt
+  const footer = document.createElement('div');
+  footer.className = 'youtube-summary-footer';
+  footer.innerHTML = `
+    <div class="youtube-summary-input-container">
+      <textarea id="youtube-summary-input" placeholder="Digite um novo prompt para análise do vídeo..."></textarea>
+      <button id="youtube-summary-send" class="youtube-summary-send-btn">Enviar</button>
+    </div>
+  `;
+  
+  // Montar menu
+  menu.appendChild(header);
+  menu.appendChild(content);
+  menu.appendChild(footer);
+  
+  // Adicionar ao overlay
+  overlay.appendChild(menu);
+  
+  // Adicionar ao body
+  document.body.appendChild(overlay);
+  
+  // Eventos
+  setupMenuEvents(overlay, menu);
+  
+  return menu;
+}
+
+// Função para configurar eventos do menu
+function setupMenuEvents(overlay, menu) {
+  // Fechar menu
+  const closeBtn = document.getElementById('youtube-summary-close');
+  closeBtn.addEventListener('click', () => {
+    closeSideMenu();
+  });
+  
+  // Fechar ao clicar no overlay
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeSideMenu();
+    }
+  });
+  
+  // Enviar novo prompt
+  const sendBtn = document.getElementById('youtube-summary-send');
+  const input = document.getElementById('youtube-summary-input');
+  
+  sendBtn.addEventListener('click', () => {
+    const prompt = input.value.trim();
+    if (prompt) {
+      handleNewPrompt(prompt);
+      input.value = '';
+    }
+  });
+  
+  // Enter no textarea
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const prompt = input.value.trim();
+      if (prompt) {
+        handleNewPrompt(prompt);
+        input.value = '';
+      }
+    }
+  });
+}
+
+// Função para abrir o menu lateral
+function openSideMenu() {
+  const overlay = document.getElementById('youtube-summary-overlay');
+  const menu = document.getElementById('youtube-summary-menu');
+  
+  if (overlay && menu) {
+    overlay.style.display = 'flex';
+    setTimeout(() => {
+      overlay.classList.add('active');
+      menu.classList.add('active');
+    }, 10);
+  }
+}
+
+// Função para fechar o menu lateral
+function closeSideMenu() {
+  const overlay = document.getElementById('youtube-summary-overlay');
+  const menu = document.getElementById('youtube-summary-menu');
+  
+  if (overlay && menu) {
+    overlay.classList.remove('active');
+    menu.classList.remove('active');
+    
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 300);
+  }
+}
+
+// Função para processar novo prompt
+async function handleNewPrompt(userPrompt) {
+  const currentTranscription = window.currentTranscription;
+  if (!currentTranscription) {
+    alert('Nenhuma transcrição disponível. Clique em um vídeo primeiro.');
+    return;
+  }
+  
+  const fullPrompt = `${userPrompt}
+
+Baseado na seguinte transcrição de vídeo:
+
+${currentTranscription}
+
+Por favor, responda em português do Brasil e formate a resposta em markdown.`;
+  
+  showLoading();
+  
+  try {
+    const response = await callGeminiAPI(fullPrompt);
+    showResult(response);
+  } catch (error) {
+    showError('Erro ao processar novo prompt: ' + error.message);
+  }
+}
+
+// Função para mostrar loading
+function showLoading() {
+  const loading = document.getElementById('youtube-summary-loading');
+  const result = document.getElementById('youtube-summary-result');
+  
+  if (loading && result) {
+    loading.style.display = 'flex';
+    result.style.display = 'none';
+  }
+}
+
+// Função para mostrar resultado
+function showResult(text) {
+  const loading = document.getElementById('youtube-summary-loading');
+  const result = document.getElementById('youtube-summary-result');
+  
+  if (loading && result) {
+    loading.style.display = 'none';
+    result.style.display = 'block';
+    
+    // Renderizar markdown
+    const html = renderMarkdown(text);
+    result.innerHTML = html;
+    
+    // Efeito de fade in
+    result.style.opacity = '0';
+    setTimeout(() => {
+      result.style.opacity = '1';
+    }, 100);
+  }
+}
+
+// Função para mostrar erro
+function showError(message) {
+  const loading = document.getElementById('youtube-summary-loading');
+  const result = document.getElementById('youtube-summary-result');
+  
+  if (loading && result) {
+    loading.style.display = 'none';
+    result.style.display = 'block';
+    result.innerHTML = `<div class="youtube-summary-error">❌ ${message}</div>`;
+    
+    // Efeito de fade in
+    result.style.opacity = '0';
+    setTimeout(() => {
+      result.style.opacity = '1';
+    }, 100);
+  }
+}
+
+// Função para processar transcrição com Gemini
+async function processTranscriptionWithGemini(transcription) {
+  const prompt = `Faça um resumo detalhado do seguinte vídeo em português do Brasil. Organize o conteúdo em 5 a 10 tópicos principais, destacando os pontos mais importantes. Formate a resposta em markdown com títulos, subtítulos e use negrito para destacar palavras-chave e conceitos importantes.
+
+Transcrição do vídeo:
+
+${transcription}
+
+Por favor, estruture o resumo de forma clara e organizada, usando markdown para uma melhor apresentação.`;
+
+  try {
+    console.log('[Gemini] Processando transcrição...');
+    const response = await callGeminiAPI(prompt);
+    return response;
+  } catch (error) {
+    console.error('[Gemini] Erro ao processar transcrição:', error);
+    throw error;
+  }
+}
+
 // Novo método usando API interna do YouTube
 async function getVideoTranscription(videoId) {
   try {
@@ -660,33 +977,20 @@ function handleIconClick(thumbnail, index, isSecondIcon = false) {
     if (videoId) {
       const transcription = await getVideoTranscription(videoId);
       if (transcription) {
-        const formattedTranscription =
-          "Resuma o conteúdo a seguir em 5 a 10 tópicos , se for uma transcrição. in Portuguese (Brazil): " +
-          transcription;
-
-        console.log(
-          "[YouTube] Salvando transcrição no storage:",
-          formattedTranscription.substring(0, 100) + "..."
-        );
+        window.currentTranscription = transcription; // Armazena a transcrição globalmente
         
-        if (isSecondIcon) {
-          // Para o segundo ícone, abrir o Google AI Studio
-          chrome.storage.local.set(
-            { pendingTranscript: formattedTranscription },
-            () => {
-              console.log("[YouTube] Transcrição salva, abrindo Google AI Studio...");
-              window.open("https://aistudio.google.com/prompts/new_chat", "_blank");
-            }
-          );
-        } else {
-          // Para o primeiro ícone, manter o comportamento original
-          chrome.storage.local.set(
-            { pendingTranscript: formattedTranscription },
-            () => {
-              console.log("[YouTube] Transcrição salva, abrindo Deepseek...");
-              window.open("https://chat.deepseek.com/", "_blank");
-            }
-          );
+        // Criar o menu se não existir
+        createSideMenu();
+        
+        // Abrir o menu e processar com Gemini
+        openSideMenu();
+        
+        // Processar transcrição com Gemini
+        try {
+          const summary = await processTranscriptionWithGemini(transcription);
+          showResult(summary);
+        } catch (error) {
+          showError('Erro ao processar transcrição: ' + error.message);
         }
       } else {
         alert("Não foi possível obter a transcrição deste vídeo.");
@@ -748,9 +1052,9 @@ function processVideoThumbnails() {
   });
 }
 
-// Função para processar contêineres de vídeo e adicionar botões Deepseek
+// Função para processar contêineres de vídeo e adicionar botões Resumo AI
 function processVideoContainers() {
-  console.log("[YouTube] Procurando contêineres de vídeo para adicionar botões Deepseek...");
+  console.log("[YouTube] Procurando contêineres de vídeo para adicionar botões Resumo AI...");
 
   // Testar diferentes seletores para thumbnails
   console.log("[YouTube] Testando seletores para thumbnails:");
@@ -779,14 +1083,14 @@ function processVideoContainers() {
 
   // Primeira tentativa: Procurar por vídeos com class="yt-lockup-view-model-wiz"
   const videoModelContainers = document.querySelectorAll(
-    ".yt-lockup-view-model-wiz:not(.deepseek-button-added)"
+    ".yt-lockup-view-model-wiz:not(.ai-summary-button-added)"
   );
   
   processContainers(videoModelContainers, ".yt-lockup-view-model-wiz__content-image");
 
   // Segunda tentativa: Procurar por vídeos com ytd-rich-item-renderer
   const richItemContainers = document.querySelectorAll(
-    "ytd-rich-item-renderer:not(.deepseek-button-added)"
+    "ytd-rich-item-renderer:not(.ai-summary-button-added)"
   );
   
   processContainers(richItemContainers, "a[href^='/watch?v=']");
@@ -800,7 +1104,7 @@ function processContainers(containers, thumbnailSelector) {
     try {
       
       // Verificar se já tem o botão
-      if (container.querySelector(".deepseek-video-container-button")) {
+      if (container.querySelector(".ai-summary-video-container-button")) {
         return;
       }
 
@@ -838,46 +1142,44 @@ function processContainers(containers, thumbnailSelector) {
       
       console.log(`[YouTube] ID do vídeo extraído: ${videoId}`);
 
-      // Criar botão Deepseek para o contêiner do vídeo
-      const deepseekButton = document.createElement("div");
-      deepseekButton.className = "deepseek-video-container-button";
-      deepseekButton.innerHTML = `
+      // Criar botão Resumo AI para o contêiner do vídeo
+      const aiSummaryButton = document.createElement("div");
+      aiSummaryButton.className = "ai-summary-video-container-button";
+      aiSummaryButton.innerHTML = `
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/>
         </svg>
-        <span>Deepseek</span>
+        <span>Resumo AI</span>
       `;
 
       // Adicionar o botão como filho direto do contêiner do vídeo
-      container.appendChild(deepseekButton);
-      container.classList.add("deepseek-button-added");
-      console.log(`[YouTube] Botão Deepseek adicionado ao contêiner ${index}`);
+      container.appendChild(aiSummaryButton);
+      container.classList.add("ai-summary-button-added");
+      console.log(`[YouTube] Botão Resumo AI adicionado ao contêiner ${index}`);
 
-      // Evento para o botão Deepseek usando o ID do vídeo diretamente
-      deepseekButton.addEventListener("click", async (e) => {
+      // Evento para o botão Resumo AI usando o ID do vídeo diretamente
+      aiSummaryButton.addEventListener("click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log(`[YouTube] Botão Deepseek clicado para vídeo ${videoId}`);
+        console.log(`[YouTube] Botão Resumo AI clicado para vídeo ${videoId}`);
         const transcription = await getVideoTranscription(videoId);
         if (transcription) {
-          const formattedTranscription =
-            "Resuma o conteúdo a seguir em 5 a 10 tópicos com registro de data e hora, se for uma transcrição. in Portuguese (Brazil): " +
-            transcription;
-
-          console.log(
-            "[YouTube] Salvando transcrição no storage:",
-            formattedTranscription.substring(0, 100) + "..."
-          );
+          window.currentTranscription = transcription; // Armazena a transcrição globalmente
           
-          // Para o botão do contêiner, abrir o Deepseek
-          chrome.storage.local.set(
-            { pendingTranscript: formattedTranscription },
-            () => {
-              console.log("[YouTube] Transcrição salva, abrindo Deepseek...");
-              window.open("https://chat.deepseek.com/", "_blank");
-            }
-          );
+          // Criar o menu se não existir
+          createSideMenu();
+          
+          // Abrir o menu e processar com Gemini
+          openSideMenu();
+          
+          // Processar transcrição com Gemini
+          try {
+            const summary = await processTranscriptionWithGemini(transcription);
+            showResult(summary);
+          } catch (error) {
+            showError('Erro ao processar transcrição: ' + error.message);
+          }
         } else {
           alert("Não foi possível obter a transcrição deste vídeo.");
         }
@@ -928,14 +1230,14 @@ try {
       position: relative !important;
     }
 
-    .deepseek-video-container-button {
+    .ai-summary-video-container-button {
       position: absolute;
       bottom: -28px; /* Ajuste este valor conforme necessário */
       left: 10px;
       display: flex;
       align-items: center;
       padding: 6px 10px;
-      background-color: #065fd4;
+      background-color: #4285f4;
       color: white;
       border: none;
       border-radius: 4px;
@@ -948,14 +1250,251 @@ try {
       pointer-events: auto;
     }
 
-    .deepseek-video-container-button svg {
+    .ai-summary-video-container-button svg {
       margin-right: 4px;
     }
 
-    .deepseek-video-container-button:hover {
-      background-color: #0056b3;
+    .ai-summary-video-container-button:hover {
+      background-color: #3367d6;
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Estilos para o menu lateral */
+    .youtube-summary-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: flex-end;
+      align-items: stretch;
+      z-index: 999999;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .youtube-summary-overlay.active {
+      opacity: 1;
+    }
+
+    .youtube-summary-menu {
+      width: 75%;
+      height: 100%;
+      background-color: #1a1a1a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .youtube-summary-menu.active {
+      transform: translateX(0);
+    }
+
+    .youtube-summary-header {
+      padding: 20px;
+      background-color: #2a2a2a;
+      border-bottom: 1px solid #3a3a3a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .youtube-summary-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .youtube-summary-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background-color 0.2s;
+    }
+
+    .youtube-summary-close:hover {
+      background-color: #3a3a3a;
+    }
+
+    .youtube-summary-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.8;
+      font-size: 20px;
+    }
+
+    .youtube-summary-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: #aaa;
+    }
+
+    .youtube-summary-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top: 3px solid #065fd4;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .youtube-summary-result {
+      opacity: 1;
+      transition: opacity 0.5s ease;
+    }
+
+    .youtube-summary-result h1 {
+      font-size: 24px;
+      margin: 0 0 20px 0;
+      color: #065fd4;
+    }
+
+    .youtube-summary-result h2 {
+      font-size: 20px;
+      margin: 25px 0 15px 0;
+      color: #4a9eff;
+    }
+
+    .youtube-summary-result h3 {
+      font-size: 18px;
+      margin: 20px 0 10px 0;
+      color: #6bb6ff;
+    }
+
+    .youtube-summary-result p {
+      margin: 0 0 15px 0;
+      color: #e0e0e0;
+    }
+
+    .youtube-summary-result strong {
+      color: white;
+      font-weight: 600;
+    }
+
+    .youtube-summary-result ul, .youtube-summary-result ol {
+      margin: 15px 0;
+      padding-left: 20px;
+    }
+
+    .youtube-summary-result li {
+      margin: 8px 0;
+      color: #e0e0e0;
+    }
+
+    .youtube-summary-result em {
+      color: #b8b8b8;
+      font-style: italic;
+    }
+
+    .youtube-summary-error {
+      color: #ff6b6b;
+      background-color: #2a1a1a;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #ff6b6b;
+      margin: 20px 0;
+    }
+
+    .youtube-summary-footer {
+      padding: 20px;
+      background-color: #2a2a2a;
+      border-top: 1px solid #3a3a3a;
+    }
+
+    .youtube-summary-input-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .youtube-summary-input-container textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 12px;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      background-color: #1a1a1a;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
+    .youtube-summary-input-container textarea::placeholder {
+      color: #888;
+    }
+
+    .youtube-summary-input-container textarea:focus {
+      outline: none;
+      border-color: #065fd4;
+    }
+
+    .youtube-summary-send-btn {
+      align-self: flex-end;
+      padding: 10px 20px;
+      background-color: #065fd4;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .youtube-summary-send-btn:hover {
+      background-color: #0056b3;
+    }
+
+    .youtube-summary-send-btn:disabled {
+      background-color: #333;
+      cursor: not-allowed;
+    }
+
+    /* Scrollbar personalizada para o menu */
+    .youtube-summary-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .youtube-summary-content::-webkit-scrollbar-track {
+      background: #2a2a2a;
+    }
+
+    .youtube-summary-content::-webkit-scrollbar-thumb {
+      background: #4a4a4a;
+      border-radius: 4px;
+    }
+
+    .youtube-summary-content::-webkit-scrollbar-thumb:hover {
+      background: #5a5a5a;
     }
   `;
   document.head.appendChild(styles);
@@ -997,153 +1536,5 @@ setTimeout(() => {
 console.log("[YouTube] Executando addSummaryIcons imediatamente...");
 addSummaryIcons();
 
-// Função para verificar se estamos no Deepseek
-function isDeepseekPage() {
-  const isDeeepseek = window.location.hostname.includes("deepseek.com");
-  console.log("[Deepseek] Verificando se é página Deepseek:", isDeeepseek);
-  return isDeeepseek;
-}
-
-// Função para inserir a transcrição no Deepseek
-function handleDeepseekPage() {
-  console.log("[Deepseek] Iniciando handleDeepseekPage");
-  if (!isDeepseekPage()) {
-    console.log("[Deepseek] Não estamos no Deepseek, retornando...");
-    return;
-  }
-
-  console.log("[Deepseek] Aguardando carregamento da página...");
-  // Esperar um pouco para garantir que a página carregou
-  setTimeout(() => {
-    console.log("[Deepseek] Tentando recuperar transcrição do storage...");
-    chrome.storage.local.get(["pendingTranscript"], function (result) {
-      console.log("[Deepseek] Resultado do storage:", result);
-      if (result.pendingTranscript) {
-        console.log(
-          "[Deepseek] Transcrição encontrada, procurando textarea..."
-        );
-        const textarea = document.querySelector("#chat-input");
-        console.log("[Deepseek] Textarea encontrado:", textarea);
-
-        if (textarea) {
-          console.log("[Deepseek] Inserindo texto no textarea...");
-          textarea.value = result.pendingTranscript;
-
-          // Disparar evento de input para notificar mudanças
-          console.log("[Deepseek] Disparando evento de input...");
-          textarea.dispatchEvent(new Event("input", { bubbles: true }));
-
-          // Aguardar um momento antes de clicar no botão de modelo e enviar
-          setTimeout(() => {
-            console.log("[Deepseek] Procurando botão de modelo...");
-            const modelButton = document.querySelector(
-              "#root > div > div.c3ecdb44 > div.f2eea526 > div > div.b83ee326 > div > div > div.cbcaa82c > div.aaff8b8f > div > div > div.ec4f5d61 > div:nth-child(1)"
-            );
-
-            if (modelButton) {
-              console.log("[Deepseek] Clicando no botão de modelo...");
-              modelButton.click();
-
-              // Aguardar mais um momento antes de simular o Enter
-            } else {
-              console.log("[Deepseek] ERRO: Botão de modelo não encontrado!");
-            }
-          }, 1000); // Aguarda 1 segundo antes de clicar no botão de modelo
-
-          setTimeout(() => {
-            console.log("[Deepseek] Simulando pressionar Enter...");
-            textarea.dispatchEvent(
-              new KeyboardEvent("keydown", {
-                key: "Enter",
-                code: "Enter",
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-              })
-            );
-
-            // Limpar o storage após usar
-            console.log("[Deepseek] Limpando storage...");
-            chrome.storage.local.remove("pendingTranscript");
-          }, 1000); // Aguarda 1 segundo antes de pressionar Enter
-        } else {
-          console.log("[Deepseek] ERRO: Textarea não encontrado!");
-        }
-      } else {
-        console.log(
-          "[Deepseek] Nenhuma transcrição pendente encontrada no storage"
-        );
-      }
-    });
-  }, 2000);
-}
-
-// Inicializar a funcionalidade do Deepseek
-console.log("[Deepseek] Inicializando script...");
-handleDeepseekPage();
-
-// Função para verificar se estamos no Google AI Studio
-function isGoogleAIStudioPage() {
-  return window.location.hostname.includes("aistudio.google.com");
-}
-
-// Função para inserir a transcrição no Google AI Studio
-function handleGoogleAIStudioPage() {
-  console.log("[Google AI Studio] Iniciando handleGoogleAIStudioPage");
-  if (!isGoogleAIStudioPage()) {
-    console.log("[Google AI Studio] Não estamos no Google AI Studio, retornando...");
-    return;
-  }
-
-  console.log("[Google AI Studio] Aguardando carregamento da página...");
-  setTimeout(() => {
-    console.log("[Google AI Studio] Tentando recuperar transcrição do storage...");
-    chrome.storage.local.get(["pendingTranscript"], function (result) {
-      console.log("[Google AI Studio] Resultado do storage:", result);
-      if (result.pendingTranscript) {
-        console.log("[Google AI Studio] Transcrição encontrada, procurando textarea...");
-        const textarea = document.querySelector(
-          "body > app-root > div > div div > span > ms-prompt-switcher > ms-chunk-editor > section > footer > div.input-wrapper > div.text-wrapper > ms-chunk-input > section > ms-text-chunk > ms-autosize-textarea > textarea"
-        );
-        console.log("[Google AI Studio] Textarea encontrado:", textarea);
-
-        if (textarea) {
-          console.log("[Google AI Studio] Inserindo texto no textarea...");
-          textarea.value = result.pendingTranscript;
-
-          // Disparar evento de input para notificar mudanças
-          console.log("[Google AI Studio] Disparando evento de input...");
-          textarea.dispatchEvent(new Event("input", { bubbles: true }));
-
-          // Aguardar um momento antes de clicar no botão de enviar
-          setTimeout(() => {
-            console.log("[Google AI Studio] Procurando botão de enviar...");
-            const sendButton = document.querySelector(
-              "body > app-root > div > div div > span > ms-prompt-switcher > ms-chunk-editor > section > footer > div.input-wrapper > div:nth-child(3) > run-button > button"
-            );
-
-            if (sendButton) {
-              console.log("[Google AI Studio] Clicando no botão de enviar...");
-              sendButton.click();
-
-              // Limpar o storage após usar
-              console.log("[Google AI Studio] Limpando storage...");
-              chrome.storage.local.remove("pendingTranscript");
-            } else {
-              console.log("[Google AI Studio] ERRO: Botão de enviar não encontrado!");
-            }
-          }, 1000); // Aguarda 1 segundo antes de clicar no botão
-        } else {
-          console.log("[Google AI Studio] ERRO: Textarea não encontrado!");
-        }
-      } else {
-        console.log("[Google AI Studio] Nenhuma transcrição pendente encontrada no storage");
-      }
-    });
-  }, 2000);
-}
-
-// Inicializar a funcionalidade do Google AI Studio
-console.log("[Google AI Studio] Inicializando script...");
-handleGoogleAIStudioPage();
+// Funcionalidade removida - agora usando menu lateral integrado com Gemini API
 
