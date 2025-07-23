@@ -1163,26 +1163,18 @@ function processContainers(containers, thumbnailSelector) {
         e.stopPropagation();
         
         console.log(`[YouTube] Botão Resumo AI clicado para vídeo ${videoId}`);
+        
+        // Mostrar loading global ou algo enquanto pega transcrição
+        // Para simplicidade, vamos assumir que pegamos a transcrição primeiro
         const transcription = await getVideoTranscription(videoId);
-        if (transcription) {
-          window.currentTranscription = transcription; // Armazena a transcrição globalmente
-          
-          // Criar o menu se não existir
-          createSideMenu();
-          
-          // Abrir o menu e processar com Gemini
-          openSideMenu();
-          
-          // Processar transcrição com Gemini
-          try {
-            const summary = await processTranscriptionWithGemini(transcription);
-            showResult(summary);
-          } catch (error) {
-            showError('Erro ao processar transcrição: ' + error.message);
-          }
-        } else {
+        if (!transcription) {
           alert("Não foi possível obter a transcrição deste vídeo.");
+          return;
         }
+        window.currentTranscription = transcription;
+        
+        // Criar popup
+        createPromptPopup(aiSummaryButton, transcription);
       });
     } catch (error) {
       console.error(`[YouTube] Erro ao adicionar botão Deepseek ao contêiner ${index}:`, error);
@@ -1190,7 +1182,65 @@ function processContainers(containers, thumbnailSelector) {
   });
 }
 
-// Adicionar estilos CSS
+// Nova função para criar o popup de prompt
+function createPromptPopup(button, transcription) {
+  // Remover popup existente se houver
+  const existingPopup = document.querySelector('.youtube-summary-prompt-popup');
+  if (existingPopup) existingPopup.remove();
+  
+  const popup = document.createElement('div');
+  popup.className = 'youtube-summary-prompt-popup';
+  
+  // Prompt pré-preenchido (sem a transcrição)
+  const defaultPrompt = `Faça um resumo detalhado do seguinte vídeo em português do Brasil. Organize o conteúdo em 5 a 10 tópicos principais, destacando os pontos mais importantes. Formate a resposta em markdown com títulos, subtítulos e use negrito para destacar palavras-chave e conceitos importantes.
+
+Transcrição do vídeo:
+
+[TRANSCRIÇÃO SERÁ INSERIDA AQUI]
+
+Por favor, estruture o resumo de forma clara e organizada, usando markdown para uma melhor apresentação.`;
+  
+  popup.innerHTML = `
+    <div class="youtube-summary-prompt-header">
+      <h3>Editar Prompt</h3>
+      <button class="youtube-summary-prompt-close">×</button>
+    </div>
+    <textarea class="youtube-summary-prompt-textarea">${defaultPrompt}</textarea>
+    <button class="youtube-summary-prompt-send">Enviar</button>
+  `;
+  
+  // Posicionar acima do botão
+  document.body.appendChild(popup);
+  const buttonRect = button.getBoundingClientRect();
+  popup.style.position = 'absolute';
+  popup.style.top = `${buttonRect.top + window.pageYOffset - popup.offsetHeight - 10}px`;
+  popup.style.left = `${buttonRect.left + window.pageXOffset}px`;
+  
+  // Eventos
+  const closeBtn = popup.querySelector('.youtube-summary-prompt-close');
+  closeBtn.addEventListener('click', () => popup.remove());
+  
+  const sendBtn = popup.querySelector('.youtube-summary-prompt-send');
+  sendBtn.addEventListener('click', async () => {
+    const userPrompt = popup.querySelector('.youtube-summary-prompt-textarea').value;
+    const fullPrompt = userPrompt.replace('[TRANSCRIÇÃO SERÁ INSERIDA AQUI]', transcription);
+    
+    popup.remove();
+    
+    createSideMenu();
+    openSideMenu();
+    showLoading();
+    
+    try {
+      const response = await callGeminiAPI(fullPrompt);
+      showResult(response);
+    } catch (error) {
+      showError('Erro ao processar prompt: ' + error.message);
+    }
+  });
+}
+
+// Adicionar estilos para o popup no bloco de estilos
 try {
   console.log("[YouTube] Adicionando estilos CSS...");
   const styles = document.createElement("style");
@@ -1495,6 +1545,64 @@ try {
 
     .youtube-summary-content::-webkit-scrollbar-thumb:hover {
       background: #5a5a5a;
+    }
+
+    /* Estilos para o popup de prompt */
+    .youtube-summary-prompt-popup {
+      width: 300px;
+      background-color: #2a2a2a;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      padding: 15px;
+      z-index: 10000;
+    }
+
+    .youtube-summary-prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .youtube-summary-prompt-header h3 {
+      margin: 0;
+      font-size: 16px;
+      color: white;
+    }
+
+    .youtube-summary-prompt-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .youtube-summary-prompt-textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      background-color: #1a1a1a;
+      color: white;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      resize: vertical;
+      font-size: 14px;
+    }
+
+    .youtube-summary-prompt-send {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #065fd4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      float: right;
+    }
+
+    .youtube-summary-prompt-send:hover {
+      background-color: #0056b3;
     }
   `;
   document.head.appendChild(styles);
