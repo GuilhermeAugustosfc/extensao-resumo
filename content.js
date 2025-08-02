@@ -167,8 +167,64 @@ function createSideMenu() {
   
   // Eventos
   setupMenuEvents(overlay, menu);
+  setupResizeEvents(menu);
   
   return menu;
+}
+
+// Função para configurar eventos de redimensionamento do menu
+function setupResizeEvents(menu) {
+  const handle = document.createElement('div');
+  handle.className = 'youtube-summary-resize-handle';
+  menu.appendChild(handle);
+
+  let isResizing = false;
+  let startX;
+  let startWidth;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = parseInt(window.getComputedStyle(menu).width, 10);
+
+    menu.classList.add('resizing');
+
+    // Adiciona um overlay para capturar o movimento do mouse em toda a tela
+    const resizeOverlay = document.createElement('div');
+    resizeOverlay.className = 'youtube-summary-resize-overlay';
+    document.body.appendChild(resizeOverlay);
+
+    const handleMouseMove = (moveEvent) => {
+      if (!isResizing) return;
+      // Calcula a nova largura baseado no movimento do mouse
+      const newWidth = startWidth - (moveEvent.clientX - startX);
+      
+      
+      // Define limites para a largura
+      const minWidth = 300; // Largura mínima de 300px
+      const maxWidth = window.innerWidth * 0.9; // Máximo de 90% da tela
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        menu.style.width = `${newWidth}px`;
+      }
+    };
+
+    const handleMouseUp = () => {
+      isResizing = false;
+      menu.classList.remove('resizing');
+      
+      // Remove o overlay e os listeners de evento
+      resizeOverlay.remove();
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  });
 }
 
 // Função para configurar eventos do menu
@@ -1103,7 +1159,7 @@ function processContainers(containers, thumbnailSelector) {
   containers.forEach((container, index) => {
     try {
       
-      // Verificar se já tem o botão
+      // Verificar se já tem os botões
       if (container.querySelector(".ai-summary-video-container-button")) {
         return;
       }
@@ -1142,6 +1198,10 @@ function processContainers(containers, thumbnailSelector) {
       
       console.log(`[YouTube] ID do vídeo extraído: ${videoId}`);
 
+      // Criar container para os botões
+      const buttonsContainer = document.createElement("div");
+      buttonsContainer.className = "ai-summary-buttons-container";
+
       // Criar botão Resumo AI para o contêiner do vídeo
       const aiSummaryButton = document.createElement("div");
       aiSummaryButton.className = "ai-summary-video-container-button";
@@ -1152,10 +1212,23 @@ function processContainers(containers, thumbnailSelector) {
         <span>Resumo AI</span>
       `;
 
-      // Adicionar o botão como filho direto do contêiner do vídeo
-      container.appendChild(aiSummaryButton);
+      // Criar botão Resumo ChatGPT
+      const chatgptButton = document.createElement("div");
+      chatgptButton.className = "ai-summary-video-container-button chatgpt";
+      chatgptButton.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+        </svg>
+      `;
+
+      // Adicionar botões ao container
+      buttonsContainer.appendChild(aiSummaryButton);
+      buttonsContainer.appendChild(chatgptButton);
+
+      // Adicionar o container como filho direto do contêiner do vídeo
+      container.appendChild(buttonsContainer);
       container.classList.add("ai-summary-button-added");
-      console.log(`[YouTube] Botão Resumo AI adicionado ao contêiner ${index}`);
+      console.log(`[YouTube] Botões Resumo AI e ChatGPT adicionados ao contêiner ${index}`);
 
       // Evento para o botão Resumo AI usando o ID do vídeo diretamente
       aiSummaryButton.addEventListener("click", async (e) => {
@@ -1176,8 +1249,73 @@ function processContainers(containers, thumbnailSelector) {
         // Criar popup
         createPromptPopup(aiSummaryButton, transcription);
       });
+
+      // Evento para o botão Resumo ChatGPT
+      chatgptButton.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log(`[YouTube] Botão Resumo ChatGPT clicado para vídeo ${videoId}`);
+        
+        // Mostrar loading
+        chatgptButton.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 0-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+          </svg>
+          <span>Carregando...</span>
+        `;
+        chatgptButton.style.opacity = '0.7';
+        
+        try {
+          console.log(`[YouTube] Extraindo transcrição para vídeo ${videoId}...`);
+          const transcription = await getVideoTranscription(videoId);
+          if (!transcription) {
+            alert("Não foi possível obter a transcrição deste vídeo.");
+            return;
+          }
+          
+
+          
+          console.log(`[YouTube] Transcrição extraída com sucesso! Tamanho: ${transcription.length} caracteres`);
+          console.log(`[YouTube] Salvando transcrição no chrome.storage...`);
+          
+          // Salvar transcrição no chrome.storage (funciona entre domínios)
+          const transcriptionData = {
+            text: transcription,
+            timestamp: Date.now(),
+            videoId: videoId
+          };
+          
+          chrome.storage.local.set({ 'youtubeTranscription': transcriptionData }, () => {
+            if (chrome.runtime.lastError) {
+              console.error(`[YouTube] ❌ Erro ao salvar transcrição:`, chrome.runtime.lastError);
+            } else {
+              console.log(`[YouTube] ✅ Transcrição salva com sucesso no chrome.storage!`);
+              console.log(`[YouTube] Timestamp: ${new Date(transcriptionData.timestamp).toLocaleString()}`);
+              console.log(`[YouTube] Tamanho salvo: ${transcription.length} caracteres`);
+              console.log(`[YouTube] Video ID: ${videoId}`);
+            }
+          });
+          
+          console.log(`[YouTube] Abrindo ChatGPT em nova aba...`);
+          // Redirecionar para o ChatGPT
+          window.open('https://chatgpt.com/?model=auto', '_blank');
+          
+        } catch (error) {
+          console.error('[YouTube] Erro ao processar transcrição para ChatGPT:', error);
+          alert('Erro ao processar transcrição: ' + error.message);
+        } finally {
+          // Restaurar botão
+          chatgptButton.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 0-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+            </svg>
+          `;
+          chatgptButton.style.opacity = '1';
+        }
+      });
     } catch (error) {
-      console.error(`[YouTube] Erro ao adicionar botão Deepseek ao contêiner ${index}:`, error);
+      console.error(`[YouTube] Erro ao adicionar botões ao contêiner ${index}:`, error);
     }
   });
 }
@@ -1280,10 +1418,16 @@ try {
       position: relative !important;
     }
 
-    .ai-summary-video-container-button {
+    .ai-summary-buttons-container {
       position: absolute;
-      bottom: -28px; /* Ajuste este valor conforme necessário */
+      bottom: -28px;
       left: 10px;
+      display: flex;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .ai-summary-video-container-button {
       display: flex;
       align-items: center;
       padding: 6px 10px;
@@ -1298,6 +1442,14 @@ try {
       transition: transform 0.2s, background-color 0.2s;
       z-index: 9999;
       pointer-events: auto;
+    }
+
+    .ai-summary-video-container-button.chatgpt {
+      background-color: #10a37f;
+    }
+
+    .ai-summary-video-container-button.chatgpt:hover {
+      background-color: #0d8a6f;
     }
 
     .ai-summary-video-container-button svg {
@@ -1317,7 +1469,6 @@ try {
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
       display: none;
       justify-content: flex-end;
       align-items: stretch;
@@ -1331,15 +1482,22 @@ try {
     }
 
     .youtube-summary-menu {
-      width: 75%;
+      width: 40%;
+      max-width: 90vw;
+      min-width: 300px;
       height: 100%;
       background-color: #1a1a1a;
       color: white;
       display: flex;
       flex-direction: column;
       transform: translateX(100%);
-      transition: transform 0.3s ease;
+      transition: transform 0.3s ease, width 0.2s ease;
       box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    .youtube-summary-menu.resizing {
+      transition: none;
     }
 
     .youtube-summary-menu.active {
@@ -1547,6 +1705,28 @@ try {
       background: #5a5a5a;
     }
 
+    /* Estilos para a alça de redimensionamento */
+    .youtube-summary-resize-handle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 10px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 100;
+    }
+
+    /* Overlay para evitar seleção de texto durante o redimensionamento */
+    .youtube-summary-resize-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 9999999;
+    }
+
     /* Estilos para o popup de prompt */
     .youtube-summary-prompt-popup {
       width: 300px;
@@ -1614,6 +1794,44 @@ try {
 // Executar a função addSummaryIcons mais vezes para garantir que os elementos sejam capturados
 console.log("[YouTube] Inicializando observers e timers...");
 
+// Verificar se estamos no ChatGPT e processar integração
+if (window.location.hostname.includes('chatgpt.com')) {
+  console.log("[ChatGPT] Detectado ChatGPT, verificando integração...");
+  handleChatGPTIntegration();
+  
+  // Observer para mudanças de URL no ChatGPT (SPA)
+  let lastUrl = location.href;
+  const chatGPTObserver = new MutationObserver(() => {
+    const url = location.href;
+    if (url !== lastUrl) {
+      lastUrl = url;
+      console.log("[ChatGPT] URL mudou, verificando integração novamente...");
+      setTimeout(handleChatGPTIntegration, 1000);
+    }
+  });
+  
+  chatGPTObserver.observe(document, { subtree: true, childList: true });
+}
+
+// Verificar se estamos no ChatGPT e processar integração
+if (window.location.hostname.includes('chatgpt.com')) {
+  console.log("[ChatGPT] Detectado ChatGPT, verificando integração...");
+  handleChatGPTIntegration();
+  
+  // Observer para mudanças de URL no ChatGPT (SPA)
+  let lastUrl = location.href;
+  const chatGPTObserver = new MutationObserver(() => {
+    const url = location.href;
+    if (url !== lastUrl) {
+      lastUrl = url;
+      console.log("[ChatGPT] URL mudou, verificando integração novamente...");
+      setTimeout(handleChatGPTIntegration, 1000);
+    }
+  });
+  
+  chatGPTObserver.observe(document, { subtree: true, childList: true });
+}
+
 // Configurar observador
 let observerTimeout;
 const observer = new MutationObserver(() => {
@@ -1645,4 +1863,160 @@ console.log("[YouTube] Executando addSummaryIcons imediatamente...");
 addSummaryIcons();
 
 // Funcionalidade removida - agora usando menu lateral integrado com Gemini API
+
+
+
+// Função para manipular diretamente o ChatGPT
+function handleChatGPTIntegration() {
+  // Verificar se estamos no ChatGPT
+  if (!window.location.hostname.includes('chatgpt.com')) {
+    return;
+  }
+  
+  console.log('[ChatGPT] 🚀 Detectado ChatGPT, verificando transcrição...');
+  
+  // Teste de acesso ao chrome.storage
+  console.log('[ChatGPT] 🔧 Testando acesso ao chrome.storage...');
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    console.log('[ChatGPT] ✅ chrome.storage disponível');
+  } else {
+    console.error('[ChatGPT] ❌ chrome.storage não disponível');
+    return;
+  }
+  
+  // Verificar se há transcrição salva no chrome.storage
+  console.log('[ChatGPT] 📋 Verificando chrome.storage...');
+  chrome.storage.local.get(['youtubeTranscription'], (result) => {
+    if (chrome.runtime.lastError) {
+      console.error('[ChatGPT] ❌ Erro ao acessar chrome.storage:', chrome.runtime.lastError);
+      return;
+    }
+    
+    const transcriptionData = result.youtubeTranscription;
+    
+    console.log('[ChatGPT] Transcrição encontrada:', transcriptionData ? '✅ SIM' : '❌ NÃO');
+    
+    if (!transcriptionData) {
+      console.log('[ChatGPT] ❌ Nenhuma transcrição válida encontrada no chrome.storage');
+      return;
+    }
+    
+    console.log(`[ChatGPT] 📊 Transcrição recuperada! Tamanho: ${transcriptionData.text.length} caracteres`);
+    console.log(`[ChatGPT] ⏰ Timestamp: ${new Date(transcriptionData.timestamp).toLocaleString()}`);
+    console.log(`[ChatGPT] 🎥 Video ID: ${transcriptionData.videoId}`);
+    
+    // Verificar se a transcrição é recente (últimos 5 minutos)
+    const now = Date.now();
+    const timeDiff = now - transcriptionData.timestamp;
+    const timeDiffMinutes = Math.floor(timeDiff / (1000 * 60));
+    
+    console.log(`[ChatGPT] ⏱️ Tempo decorrido: ${timeDiffMinutes} minutos`);
+    
+    if (timeDiff > 5 * 60 * 1000) {
+      console.log('[ChatGPT] ⏰ Transcrição expirada (mais de 5 minutos), removendo...');
+      chrome.storage.local.remove(['youtubeTranscription'], () => {
+        console.log('[ChatGPT] 🧹 Transcrição expirada removida do chrome.storage');
+      });
+      return;
+    }
+    
+    console.log('[ChatGPT] ✅ Transcrição válida! Iniciando processamento...');
+    
+    // Função para encontrar e preencher o campo de texto
+    function fillChatGPTTextArea() {
+      console.log('[ChatGPT] 🔍 Procurando campo de texto...');
+      
+      // Tentar diferentes seletores para o campo de texto
+      const selectors = [
+        '#prompt-textarea',
+        'textarea[name="prompt-textarea"]',
+        '.ProseMirror[contenteditable="true"]',
+        '[data-id="root"] textarea',
+        '[data-id="root"] [contenteditable="true"]',
+        'div[contenteditable="true"]',
+        'textarea'
+      ];
+      
+      let textArea = null;
+      
+      for (const selector of selectors) {
+        textArea = document.querySelector(selector);
+        if (textArea) {
+          console.log(`[ChatGPT] ✅ Campo de texto encontrado usando: ${selector}`);
+          break;
+        }
+      }
+      
+      if (!textArea) {
+        console.log('[ChatGPT] ⏳ Campo de texto não encontrado, tentando novamente em 1 segundo...');
+        setTimeout(fillChatGPTTextArea, 1000);
+        return;
+      }
+      
+      console.log('[ChatGPT] 🧹 Limpando campo de texto...');
+      
+      // Limpar o campo
+      if (textArea.tagName === 'TEXTAREA') {
+        textArea.value = '';
+        textArea.focus();
+      } else if (textArea.contentEditable === 'true') {
+        textArea.innerHTML = '';
+        textArea.focus();
+      }
+      
+      console.log('[ChatGPT] 📝 Inserindo transcrição no campo...');
+      
+      // Inserir a transcrição
+      const prompt = `Resuma pra mim
+Transcrição do vídeo:
+
+${transcriptionData.text}
+
+Por favor, estruture o resumo de forma clara e organizada.`;
+      
+      if (textArea.tagName === 'TEXTAREA') {
+        textArea.value = prompt;
+        // Disparar evento de input
+        textArea.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log('[ChatGPT] ✅ Texto inserido em textarea');
+      } else if (textArea.contentEditable === 'true') {
+        textArea.innerHTML = '<p>' + prompt.replace(/\n/g, '</p><p>') + '</p>';
+        // Disparar evento de input
+        textArea.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log('[ChatGPT] ✅ Texto inserido em contenteditable');
+      }
+      
+      console.log('[ChatGPT] ⏳ Aguardando 500ms para pressionar Enter...');
+      
+      // Aguardar um pouco e pressionar Enter
+      setTimeout(() => {
+        console.log('[ChatGPT] ⌨️ Simulando pressionar Enter...');
+        
+        // Simular pressionar Enter
+        const enterEvent = new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true
+        });
+        
+        textArea.dispatchEvent(enterEvent);
+        
+        // Limpar a transcrição do chrome.storage após usar
+        chrome.storage.local.remove(['youtubeTranscription'], () => {
+          console.log('[ChatGPT] 🧹 Transcrição removida do chrome.storage');
+        });
+        
+        console.log('[ChatGPT] 🎉 Transcrição inserida e enviada com sucesso!');
+      }, 500);
+    }
+    
+    console.log('[ChatGPT] ⏳ Aguardando 2 segundos para página carregar completamente...');
+    
+    // Aguardar um pouco para a página carregar completamente
+    setTimeout(fillChatGPTTextArea, 2000);
+  });
+}
 

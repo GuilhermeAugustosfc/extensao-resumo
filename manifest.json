@@ -8,12 +8,14 @@
     "storage",
     "webRequest",
     "*://*.youtube.com/*",
-    "*://*.googlevideo.com/*"
+    "*://*.googlevideo.com/*",
+    "*://*.chatgpt.com/*"
   ],
   "host_permissions": [
     "*://*.youtube.com/*",
     "*://*.googlevideo.com/*",
-    "*://*.deepseek.com/*"
+    "*://*.deepseek.com/*",
+    "*://*.chatgpt.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -25,7 +27,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*", "*://*.deepseek.com/*", "*://*.google.com/*"],
+      "matches": ["*://*.youtube.com/*", "*://*.deepseek.com/*", "*://*.google.com/*", "*://*.chatgpt.com/*"],
       "js": ["content.js"]
     }
   ],
