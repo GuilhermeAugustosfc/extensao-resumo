@@ -26,7 +26,6 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 // Função para fazer request para Gemini API
 async function callGeminiAPI(prompt) {
   try {
-    console.log('[Gemini] Fazendo request para API...');
     
     const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
@@ -52,7 +51,6 @@ async function callGeminiAPI(prompt) {
     }
 
     const data = await response.json();
-    console.log('[Gemini] Resposta recebida:', data);
     
     // Extrair texto da resposta
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -62,7 +60,6 @@ async function callGeminiAPI(prompt) {
     
     return text;
   } catch (error) {
-    console.error('[Gemini] Erro na API:', error);
     throw error;
   }
 }
@@ -383,11 +380,9 @@ ${transcription}
 Por favor, estruture o resumo de forma clara e organizada, usando markdown para uma melhor apresentação.`;
 
   try {
-    console.log('[Gemini] Processando transcrição...');
     const response = await callGeminiAPI(prompt);
     return response;
   } catch (error) {
-    console.error('[Gemini] Erro ao processar transcrição:', error);
     throw error;
   }
 }
@@ -395,19 +390,15 @@ Por favor, estruture o resumo de forma clara e organizada, usando markdown para 
 // Novo método usando API interna do YouTube
 async function getVideoTranscription(videoId) {
   try {
-    console.log(`[YouTube] Iniciando extração de transcrição para vídeo: ${videoId}`);
     
     // Tentar primeiro com a API interna do YouTube (mais confiável)
-    console.log('[YouTube] Tentando API interna do YouTube...');
     const transcriptFromApi = await downloadTranscriptXML(videoId);
     
     if (transcriptFromApi) {
-      console.log(`[YouTube] Transcrição obtida via API interna. Tamanho: ${transcriptFromApi.length} caracteres`);
       return transcriptFromApi;
     }
     
     // Se a API interna falhar, usar o método fallback já implementado
-    console.log('[YouTube] API interna falhou, tentando método fallback...');
     
     // Obter HTML da página
     const html = await fetchVideoPageHTML(videoId);
@@ -423,7 +414,6 @@ async function getVideoTranscription(videoId) {
     
     // Selecionar melhor opção
     const selectedCaption = selectBestCaptionFromData(transcriptionData);
-    console.log(`[YouTube] Transcrição selecionada: ${selectedCaption.language}`);
     
     // Baixar via método antigo
     const transcriptFromFallback = await downloadTranscriptXMLFallback(videoId);
@@ -432,11 +422,9 @@ async function getVideoTranscription(videoId) {
       throw new Error('Todos os métodos de extração falharam');
     }
     
-    console.log(`[YouTube] Transcrição extraída via fallback. Tamanho: ${transcriptFromFallback.length} caracteres`);
     return transcriptFromFallback;
     
   } catch (error) {
-    console.error('[YouTube] Erro na extração de transcrição:', error);
     return null;
   }
 }
@@ -444,7 +432,6 @@ async function getVideoTranscription(videoId) {
 // Passo 1: Obter o conteúdo HTML da página do vídeo
 async function fetchVideoPageHTML(videoId) {
   try {
-    console.log(`[YouTube] Fazendo fetch da página do vídeo: ${videoId}`);
     const url = `https://www.youtube.com/watch?v=${videoId}`;
     
     // Cabeçalho User-Agent para simular um navegador real
@@ -459,10 +446,8 @@ async function fetchVideoPageHTML(videoId) {
     }
     
     const html = await response.text();
-    console.log(`[YouTube] HTML obtido com sucesso. Tamanho: ${html.length} caracteres`);
     return html;
   } catch (error) {
-    console.error('[YouTube] Erro ao obter HTML da página:', error);
     return null;
   }
 }
@@ -470,7 +455,6 @@ async function fetchVideoPageHTML(videoId) {
 // Extrair legendas usando split simples (baseado na lógica fv)
 function extractCaptionTracks(html) {
   try {
-    console.log('[YouTube] Extraindo captionTracks usando split...');
     
     const parts = html.split('"captions":');
     if (parts.length < 2) {
@@ -485,7 +469,6 @@ function extractCaptionTracks(html) {
       throw new Error('Youtube caption is not found');
     }
   } catch (error) {
-    console.error('[YouTube] Erro ao extrair captionTracks:', error);
     return null;
   }
 }
@@ -499,7 +482,6 @@ function extractVideoTitle(html) {
     }
     return parts[1].split('","lengthSeconds"')[0] || '';
   } catch (error) {
-    console.error('[YouTube] Erro ao extrair título:', error);
     return '';
   }
 }
@@ -507,7 +489,6 @@ function extractVideoTitle(html) {
 // Função principal para extrair dados de transcrição (baseado na lógica dv)
 function extractTranscriptionData(html) {
   try {
-    console.log('[YouTube] Processando dados de transcrição...');
     
     if (!html || !html.trim()) {
       return [];
@@ -520,8 +501,6 @@ function extractTranscriptionData(html) {
       return [];
     }
     
-    console.log(`[YouTube] Encontradas ${captionTracks.length} opções de transcrição`);
-    console.log(`[YouTube] Título do vídeo: ${title}`);
     
     // Criar mapa de legendas por nome para evitar duplicatas
     const trackMap = new Map(captionTracks.map(track => [track.name.simpleText, track]));
@@ -551,7 +530,6 @@ function extractTranscriptionData(html) {
       const track = trackMap.get(languageName);
       const vssId = track.vssId?.startsWith('.') ? track.vssId.slice(1) : track.vssId || '';
       
-      console.log(`[YouTube] Legenda mapeada: ${languageName} (${track.languageCode}) - vssId: ${vssId}`);
       
       return {
         language: languageName,
@@ -563,14 +541,12 @@ function extractTranscriptionData(html) {
     });
     
   } catch (error) {
-    console.error('[YouTube] Erro ao processar dados de transcrição:', error);
     return [];
   }
 }
 
 // Selecionar a melhor opção de transcrição da lista processada
 function selectBestCaptionFromData(transcriptionData) {
-  console.log('[YouTube] Selecionando melhor transcrição...');
   
   // Priorizar português, depois inglês
   const priorities = [
@@ -585,21 +561,17 @@ function selectBestCaptionFromData(transcriptionData) {
   for (const priority of priorities) {
     const selected = transcriptionData.find(priority);
     if (selected) {
-      console.log(`[YouTube] Selecionada: ${selected.language} (${selected.languageCode})`);
       return selected;
     }
   }
   
   // Fallback para o primeiro disponível
-  console.log('[YouTube] Usando primeira transcrição disponível como fallback');
   return transcriptionData[0];
 }
 
 // Baixar transcrição usando a API interna do YouTube
 async function downloadTranscriptXML(videoId, transcriptParams) {
   try {
-    console.log('[YouTube] Baixando transcrição via API interna do YouTube...');
-    console.log(`[YouTube] Video ID: ${videoId}`);
     
     // Usar a API interna que funciona
     const url = 'https://www.youtube.com/youtubei/v1/get_transcript?prettyPrint=false';
@@ -614,7 +586,6 @@ async function downloadTranscriptXML(videoId, transcriptParams) {
       params: transcriptParams || await generateTranscriptParams(videoId)
     };
     
-    console.log('[YouTube] Fazendo requisição para API interna...');
     
     const response = await fetch(url, {
       method: 'POST',
@@ -641,7 +612,6 @@ async function downloadTranscriptXML(videoId, transcriptParams) {
     }
     
     const jsonResponse = await response.json();
-    console.log('[YouTube] Resposta da API recebida');
     
     // Extrair texto da resposta JSON
     const transcriptText = extractTextFromApiResponse(jsonResponse);
@@ -650,14 +620,11 @@ async function downloadTranscriptXML(videoId, transcriptParams) {
       throw new Error('Não foi possível extrair texto da resposta da API');
     }
     
-    console.log(`[YouTube] Transcrição extraída com sucesso. Tamanho: ${transcriptText.length} caracteres`);
     return transcriptText;
     
   } catch (error) {
-    console.error('[YouTube] Erro ao baixar via API interna:', error);
     
     // Fallback para o método antigo se a API interna falhar
-    console.log('[YouTube] Tentando método fallback...');
     return await downloadTranscriptXMLFallback(videoId);
   }
 }
@@ -665,33 +632,27 @@ async function downloadTranscriptXML(videoId, transcriptParams) {
 // Gerar parâmetros para a API de transcrição
 async function generateTranscriptParams(videoId) {
   try {
-    console.log(`[YouTube] Gerando params para vídeo: ${videoId}`);
     
     // Tentar extrair params do HTML da página
     const html = await fetchVideoPageHTML(videoId);
     if (html) {
       const extractedParams = extractTranscriptParams(html);
       if (extractedParams) {
-        console.log('[YouTube] Params extraídos do HTML');
         return extractedParams;
       }
     }
     
     // Tentar gerar params usando o padrão que funciona
-    console.log('[YouTube] Gerando params usando padrão conhecido...');
     const generatedParams = generateParamsFromVideoId(videoId);
     if (generatedParams) {
-      console.log('[YouTube] Params gerados com sucesso');
       return generatedParams;
     }
     
     // Se não conseguir extrair, usar formato básico
-    console.log('[YouTube] Usando params básicos gerados');
     const basicParams = btoa(`${videoId}\x12\x12\x0a\x0basr\x12\x02pt\x1a\x00`);
     return basicParams;
     
   } catch (error) {
-    console.error('[YouTube] Erro ao gerar params:', error);
     return null;
   }
 }
@@ -699,7 +660,6 @@ async function generateTranscriptParams(videoId) {
 // Gerar params usando padrão conhecido (baseado no exemplo que funciona)
 function generateParamsFromVideoId(videoId) {
   try {
-    console.log(`[YouTube] Construindo params para ${videoId}...`);
     
     // Estrutura baseada no exemplo que funciona
     // O exemplo decodificado contém informações sobre o vídeo e configurações de transcrição
@@ -726,12 +686,10 @@ function generateParamsFromVideoId(videoId) {
     const paramString = `\x0a\x0b${videoId}\x12\x12\x0a\x0basr\x12\x02pt\x1a\x00\x18\x01*3engagement-panel-searchable-transcript-search-panel\x00\x008\x01@\x01`;
     
     const encodedParams = btoa(paramString);
-    console.log(`[YouTube] Params gerados: ${encodedParams.substring(0, 50)}...`);
     
     return encodedParams;
     
   } catch (error) {
-    console.error('[YouTube] Erro ao gerar params do videoId:', error);
     return null;
   }
 }
@@ -739,7 +697,6 @@ function generateParamsFromVideoId(videoId) {
 // Extrair parâmetros de transcrição do HTML
 function extractTranscriptParams(html) {
   try {
-    console.log('[YouTube] Procurando params de transcrição no HTML...');
     
     // Padrões mais específicos para encontrar params de transcrição
     const patterns = [
@@ -758,7 +715,6 @@ function extractTranscriptParams(html) {
     for (const pattern of patterns) {
       const match = html.match(pattern);
       if (match) {
-        console.log('[YouTube] Params encontrados no HTML via pattern');
         return match[1];
       }
     }
@@ -766,22 +722,18 @@ function extractTranscriptParams(html) {
     // Tentar encontrar params através da análise de botões de transcrição
     const transcriptButtonMatch = html.match(/"text":\s*"Transcrição"[^}]*}/);
     if (transcriptButtonMatch) {
-      console.log('[YouTube] Botão de transcrição encontrado, procurando params próximos...');
       
       // Procurar params nas proximidades do botão de transcrição
       const nearbyParamsMatch = html.substring(Math.max(0, transcriptButtonMatch.index - 2000), transcriptButtonMatch.index + 2000)
         .match(/"params":\s*"([^"]+)"/);
       
       if (nearbyParamsMatch) {
-        console.log('[YouTube] Params encontrados próximo ao botão de transcrição');
         return nearbyParamsMatch[1];
       }
     }
     
-    console.log('[YouTube] Params não encontrados no HTML');
     return null;
   } catch (error) {
-    console.error('[YouTube] Erro ao extrair params:', error);
     return null;
   }
 }
@@ -789,14 +741,11 @@ function extractTranscriptParams(html) {
 // Extrair texto da resposta da API
 function extractTextFromApiResponse(apiResponse) {
   try {
-    console.log('[YouTube] Extraindo texto da resposta da API...');
     
     // Log da estrutura para debug
-    console.log('[YouTube] Estrutura da resposta:', Object.keys(apiResponse));
     
     // Método 1: Formato com actions (mais comum)
     if (apiResponse.actions && Array.isArray(apiResponse.actions)) {
-      console.log('[YouTube] Processando formato com actions...');
       
       for (const action of apiResponse.actions) {
         // Tentar diferentes caminhos para transcriptRenderer
@@ -813,7 +762,6 @@ function extractTextFromApiResponse(apiResponse) {
             transcriptRenderer.initialSegments;
           
           if (segments && Array.isArray(segments)) {
-            console.log(`[YouTube] Encontrados ${segments.length} segmentos de transcrição`);
             
             const textParts = segments.map(segment => {
               const renderer = segment.transcriptSegmentRenderer;
@@ -825,7 +773,6 @@ function extractTextFromApiResponse(apiResponse) {
             
             if (textParts.length > 0) {
               const fullText = textParts.join(' ');
-              console.log(`[YouTube] Texto extraído via actions. Tamanho: ${fullText.length} caracteres`);
               return fullText;
             }
           }
@@ -835,43 +782,34 @@ function extractTextFromApiResponse(apiResponse) {
     
     // Método 2: Formato direto com transcript
     if (apiResponse.transcript && Array.isArray(apiResponse.transcript)) {
-      console.log('[YouTube] Processando formato direto com transcript...');
       const textParts = apiResponse.transcript.map(item => item.text || '').filter(text => text.trim().length > 0);
       if (textParts.length > 0) {
         const fullText = textParts.join(' ');
-        console.log(`[YouTube] Texto extraído via transcript direto. Tamanho: ${fullText.length} caracteres`);
         return fullText;
       }
     }
     
     // Método 3: Formato com segments
     if (apiResponse.segments && Array.isArray(apiResponse.segments)) {
-      console.log('[YouTube] Processando formato com segments...');
       const textParts = apiResponse.segments.map(segment => 
         segment.text || segment.snippet?.text || ''
       ).filter(text => text.trim().length > 0);
       
       if (textParts.length > 0) {
         const fullText = textParts.join(' ');
-        console.log(`[YouTube] Texto extraído via segments. Tamanho: ${fullText.length} caracteres`);
         return fullText;
       }
     }
     
     // Método 4: Busca recursiva por qualquer campo com 'text'
-    console.log('[YouTube] Tentando busca recursiva por texto...');
     const extractedText = recursiveTextSearch(apiResponse);
     if (extractedText) {
-      console.log(`[YouTube] Texto extraído via busca recursiva. Tamanho: ${extractedText.length} caracteres`);
       return extractedText;
     }
     
-    console.log('[YouTube] Estrutura da resposta não reconhecida');
-    console.log('[YouTube] Resposta completa:', JSON.stringify(apiResponse, null, 2).substring(0, 1000));
     return null;
     
   } catch (error) {
-    console.error('[YouTube] Erro ao extrair texto da API:', error);
     return null;
   }
 }
@@ -924,7 +862,6 @@ function recursiveTextSearch(obj, maxDepth = 5, currentDepth = 0) {
 // Método fallback usando o método antigo
 async function downloadTranscriptXMLFallback(videoId) {
   try {
-    console.log('[YouTube] Usando método fallback...');
     
     // Obter dados de transcrição 
     const html = await fetchVideoPageHTML(videoId);
@@ -951,7 +888,6 @@ async function downloadTranscriptXMLFallback(videoId) {
     return parseTranscriptXML(xmlContent);
     
   } catch (error) {
-    console.error('[YouTube] Erro no método fallback:', error);
     return null;
   }
 }
@@ -959,7 +895,6 @@ async function downloadTranscriptXMLFallback(videoId) {
 // Passo 5: Analisar o XML e Extrair o Texto Final
 function parseTranscriptXML(xmlContent) {
   try {
-    console.log('[YouTube] Analisando XML e extraindo texto...');
     
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
@@ -977,7 +912,6 @@ function parseTranscriptXML(xmlContent) {
       throw new Error('Nenhuma tag <text> encontrada no XML');
     }
     
-    console.log(`[YouTube] Encontradas ${textElements.length} tags de texto`);
     
     // Extrair e concatenar todo o texto
     const textParts = Array.from(textElements)
@@ -988,11 +922,9 @@ function parseTranscriptXML(xmlContent) {
       .filter(text => text.length > 0);
     
     const finalText = textParts.join(' ');
-    console.log(`[YouTube] Texto final extraído. Tamanho: ${finalText.length} caracteres`);
     
     return finalText;
   } catch (error) {
-    console.error('[YouTube] Erro ao analisar XML:', error);
     return null;
   }
 }
@@ -1058,11 +990,9 @@ function handleIconClick(thumbnail, index, isSecondIcon = false) {
 // Atualizar a função addSummaryIcons
 function addSummaryIcons() {
   if (!isYouTubePage()) {
-    console.log("[YouTube] Não estamos no YouTube, saindo...");
     return;
   }
 
-  console.log("[YouTube] Iniciando processamento de vídeos...");
   // Processo para adicionar ícones às thumbnails
   processVideoThumbnails();
 
@@ -1070,17 +1000,14 @@ function addSummaryIcons() {
   processVideoContainers();
 
   // Verificar novamente após um breve intervalo
-  console.log("[YouTube] Agendando nova verificação em 1.5 segundos...");
   setTimeout(processVideoContainers, 1500);
 }
 
 // Função para processar thumbnails e adicionar ícones
 function processVideoThumbnails() {
-  console.log("[YouTube] Procurando thumbnails para adicionar ícones...");
   const thumbnails = document.querySelectorAll(
     "a#thumbnail:not(.summary-icons-added)"
   );
-  console.log(`[YouTube] Encontradas ${thumbnails.length} thumbnails para processar`);
 
   thumbnails.forEach((thumbnail, index) => {
     try {
@@ -1101,42 +1028,14 @@ function processVideoThumbnails() {
         "click",
         handleIconClick(thumbnail, index, true)
       );
-      console.log(`[YouTube] Ícone do Google AI Studio adicionado à thumbnail ${index}`);
     } catch (error) {
-      console.error(`[YouTube] Erro ao adicionar ícone do Google AI Studio à thumbnail ${index}:`, error);
     }
   });
 }
 
 // Função para processar contêineres de vídeo e adicionar botões Resumo AI
 function processVideoContainers() {
-  console.log("[YouTube] Procurando contêineres de vídeo para adicionar botões Resumo AI...");
-
-  // Testar diferentes seletores para thumbnails
-  console.log("[YouTube] Testando seletores para thumbnails:");
-  [
-    "a#thumbnail", 
-    "a.yt-simple-endpoint", 
-    "a[href^='/watch?v=']",
-    "img.yt-core-image",
-    ".yt-lockup-view-model-wiz__content-image"
-  ].forEach(selector => {
-    const elements = document.querySelectorAll(selector);
-    console.log(`[YouTube] Seletor para thumbnail "${selector}": ${elements.length} elementos encontrados`);
-  });
-
-  // Testar diferentes seletores para contêineres de vídeo
-  [
-    "ytd-rich-item-renderer", 
-    "ytd-video-renderer", 
-    "ytd-compact-video-renderer",
-    ".yt-lockup-view-model-wiz",
-    "#content"
-  ].forEach(selector => {
-    const elements = document.querySelectorAll(selector);
-    console.log(`[YouTube] Seletor para contêiner "${selector}": ${elements.length} elementos encontrados`);
-  });
-
+ 
   // Primeira tentativa: Procurar por vídeos com class="yt-lockup-view-model-wiz"
   const videoModelContainers = document.querySelectorAll(
     ".yt-lockup-view-model-wiz:not(.ai-summary-button-added)"
@@ -1154,7 +1053,6 @@ function processVideoContainers() {
 
 // Função auxiliar para processar contêineres com um seletor específico de thumbnail
 function processContainers(containers, thumbnailSelector) {
-  console.log(`[YouTube] Processando ${containers.length} contêineres com seletor de thumbnail "${thumbnailSelector}"`);
   
   containers.forEach((container, index) => {
     try {
@@ -1171,7 +1069,6 @@ function processContainers(containers, thumbnailSelector) {
         return;
       }
       
-      console.log(`[YouTube] Thumbnail encontrado no contêiner ${index} usando seletor "${thumbnailSelector}"`);
 
       // Extrair o ID do vídeo do link
       let videoId = null;
@@ -1192,11 +1089,9 @@ function processContainers(containers, thumbnailSelector) {
       }
       
       if (!videoId) {
-        console.log(`[YouTube] Não foi possível extrair o ID do vídeo, pulando...`);
         return;
       }
       
-      console.log(`[YouTube] ID do vídeo extraído: ${videoId}`);
 
       // Criar container para os botões
       const buttonsContainer = document.createElement("div");
@@ -1228,14 +1123,12 @@ function processContainers(containers, thumbnailSelector) {
       // Adicionar o container como filho direto do contêiner do vídeo
       container.appendChild(buttonsContainer);
       container.classList.add("ai-summary-button-added");
-      console.log(`[YouTube] Botões Resumo AI e ChatGPT adicionados ao contêiner ${index}`);
 
       // Evento para o botão Resumo AI usando o ID do vídeo diretamente
       aiSummaryButton.addEventListener("click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log(`[YouTube] Botão Resumo AI clicado para vídeo ${videoId}`);
         
         // Mostrar loading global ou algo enquanto pega transcrição
         // Para simplicidade, vamos assumir que pegamos a transcrição primeiro
@@ -1255,54 +1148,48 @@ function processContainers(containers, thumbnailSelector) {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log(`[YouTube] Botão Resumo ChatGPT clicado para vídeo ${videoId}`);
         
         // Mostrar loading
         chatgptButton.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 0-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+            <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
           </svg>
           <span>Carregando...</span>
         `;
         chatgptButton.style.opacity = '0.7';
         
         try {
-          console.log(`[YouTube] Extraindo transcrição para vídeo ${videoId}...`);
           const transcription = await getVideoTranscription(videoId);
           if (!transcription) {
             alert("Não foi possível obter a transcrição deste vídeo.");
             return;
           }
           
-
           
-          console.log(`[YouTube] Transcrição extraída com sucesso! Tamanho: ${transcription.length} caracteres`);
-          console.log(`[YouTube] Salvando transcrição no chrome.storage...`);
+          // Verificar se chrome.storage está disponível antes de tentar usá-lo
+          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            
+            // Salvar transcrição no chrome.storage (funciona entre domínios)
+            const transcriptionData = {
+              text: transcription,
+              timestamp: Date.now(),
+              videoId: videoId
+            };
+            
+            chrome.storage.local.set({ 'youtubeTranscription': transcriptionData }, () => {
+              if (chrome.runtime.lastError) {
+              } else {
+              }
+            });
+          } else {
+            // Armazenar na variável global como fallback (igual ao resumo AI)
+            window.currentTranscription = transcription;
+          }
           
-          // Salvar transcrição no chrome.storage (funciona entre domínios)
-          const transcriptionData = {
-            text: transcription,
-            timestamp: Date.now(),
-            videoId: videoId
-          };
-          
-          chrome.storage.local.set({ 'youtubeTranscription': transcriptionData }, () => {
-            if (chrome.runtime.lastError) {
-              console.error(`[YouTube] ❌ Erro ao salvar transcrição:`, chrome.runtime.lastError);
-            } else {
-              console.log(`[YouTube] ✅ Transcrição salva com sucesso no chrome.storage!`);
-              console.log(`[YouTube] Timestamp: ${new Date(transcriptionData.timestamp).toLocaleString()}`);
-              console.log(`[YouTube] Tamanho salvo: ${transcription.length} caracteres`);
-              console.log(`[YouTube] Video ID: ${videoId}`);
-            }
-          });
-          
-          console.log(`[YouTube] Abrindo ChatGPT em nova aba...`);
           // Redirecionar para o ChatGPT
           window.open('https://chatgpt.com/?model=auto', '_blank');
           
         } catch (error) {
-          console.error('[YouTube] Erro ao processar transcrição para ChatGPT:', error);
           alert('Erro ao processar transcrição: ' + error.message);
         } finally {
           // Restaurar botão
@@ -1315,7 +1202,6 @@ function processContainers(containers, thumbnailSelector) {
         }
       });
     } catch (error) {
-      console.error(`[YouTube] Erro ao adicionar botões ao contêiner ${index}:`, error);
     }
   });
 }
@@ -1380,7 +1266,6 @@ Por favor, estruture o resumo de forma clara e organizada, usando markdown para 
 
 // Adicionar estilos para o popup no bloco de estilos
 try {
-  console.log("[YouTube] Adicionando estilos CSS...");
   const styles = document.createElement("style");
   styles.textContent = `
     #thumbnail {
@@ -1786,17 +1671,13 @@ try {
     }
   `;
   document.head.appendChild(styles);
-  console.log("[YouTube] Estilos CSS adicionados com sucesso");
 } catch (error) {
-  console.error("[YouTube] Erro ao adicionar estilos CSS:", error);
 }
 
 // Executar a função addSummaryIcons mais vezes para garantir que os elementos sejam capturados
-console.log("[YouTube] Inicializando observers e timers...");
 
 // Verificar se estamos no ChatGPT e processar integração
 if (window.location.hostname.includes('chatgpt.com')) {
-  console.log("[ChatGPT] Detectado ChatGPT, verificando integração...");
   handleChatGPTIntegration();
   
   // Observer para mudanças de URL no ChatGPT (SPA)
@@ -1805,26 +1686,6 @@ if (window.location.hostname.includes('chatgpt.com')) {
     const url = location.href;
     if (url !== lastUrl) {
       lastUrl = url;
-      console.log("[ChatGPT] URL mudou, verificando integração novamente...");
-      setTimeout(handleChatGPTIntegration, 1000);
-    }
-  });
-  
-  chatGPTObserver.observe(document, { subtree: true, childList: true });
-}
-
-// Verificar se estamos no ChatGPT e processar integração
-if (window.location.hostname.includes('chatgpt.com')) {
-  console.log("[ChatGPT] Detectado ChatGPT, verificando integração...");
-  handleChatGPTIntegration();
-  
-  // Observer para mudanças de URL no ChatGPT (SPA)
-  let lastUrl = location.href;
-  const chatGPTObserver = new MutationObserver(() => {
-    const url = location.href;
-    if (url !== lastUrl) {
-      lastUrl = url;
-      console.log("[ChatGPT] URL mudou, verificando integração novamente...");
       setTimeout(handleChatGPTIntegration, 1000);
     }
   });
@@ -1837,7 +1698,6 @@ let observerTimeout;
 const observer = new MutationObserver(() => {
   clearTimeout(observerTimeout);
   observerTimeout = setTimeout(() => {
-    console.log("[YouTube] Mudanças detectadas no DOM, executando addSummaryIcons...");
     addSummaryIcons();
   }, 1000);
 });
@@ -1849,17 +1709,14 @@ observer.observe(document.body, {
 
 // Verificações adicionais em intervalos diferentes
 setTimeout(() => {
-  console.log("[YouTube] Executando addSummaryIcons após 2 segundos...");
   addSummaryIcons();
 }, 2000);
 
 setTimeout(() => {
-  console.log("[YouTube] Executando addSummaryIcons após 5 segundos...");
   addSummaryIcons();
 }, 5000);
 
 // Executar imediatamente para a página atual
-console.log("[YouTube] Executando addSummaryIcons imediatamente...");
 addSummaryIcons();
 
 // Funcionalidade removida - agora usando menu lateral integrado com Gemini API
@@ -1873,58 +1730,42 @@ function handleChatGPTIntegration() {
     return;
   }
   
-  console.log('[ChatGPT] 🚀 Detectado ChatGPT, verificando transcrição...');
   
   // Teste de acesso ao chrome.storage
-  console.log('[ChatGPT] 🔧 Testando acesso ao chrome.storage...');
-  if (typeof chrome !== 'undefined' && chrome.storage) {
-    console.log('[ChatGPT] ✅ chrome.storage disponível');
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
   } else {
-    console.error('[ChatGPT] ❌ chrome.storage não disponível');
     return;
   }
   
   // Verificar se há transcrição salva no chrome.storage
-  console.log('[ChatGPT] 📋 Verificando chrome.storage...');
   chrome.storage.local.get(['youtubeTranscription'], (result) => {
     if (chrome.runtime.lastError) {
-      console.error('[ChatGPT] ❌ Erro ao acessar chrome.storage:', chrome.runtime.lastError);
       return;
     }
     
     const transcriptionData = result.youtubeTranscription;
     
-    console.log('[ChatGPT] Transcrição encontrada:', transcriptionData ? '✅ SIM' : '❌ NÃO');
     
     if (!transcriptionData) {
-      console.log('[ChatGPT] ❌ Nenhuma transcrição válida encontrada no chrome.storage');
       return;
     }
     
-    console.log(`[ChatGPT] 📊 Transcrição recuperada! Tamanho: ${transcriptionData.text.length} caracteres`);
-    console.log(`[ChatGPT] ⏰ Timestamp: ${new Date(transcriptionData.timestamp).toLocaleString()}`);
-    console.log(`[ChatGPT] 🎥 Video ID: ${transcriptionData.videoId}`);
     
     // Verificar se a transcrição é recente (últimos 5 minutos)
     const now = Date.now();
     const timeDiff = now - transcriptionData.timestamp;
     const timeDiffMinutes = Math.floor(timeDiff / (1000 * 60));
     
-    console.log(`[ChatGPT] ⏱️ Tempo decorrido: ${timeDiffMinutes} minutos`);
     
     if (timeDiff > 5 * 60 * 1000) {
-      console.log('[ChatGPT] ⏰ Transcrição expirada (mais de 5 minutos), removendo...');
       chrome.storage.local.remove(['youtubeTranscription'], () => {
-        console.log('[ChatGPT] 🧹 Transcrição expirada removida do chrome.storage');
       });
       return;
     }
     
-    console.log('[ChatGPT] ✅ Transcrição válida! Iniciando processamento...');
     
     // Função para encontrar e preencher o campo de texto
     function fillChatGPTTextArea() {
-      console.log('[ChatGPT] 🔍 Procurando campo de texto...');
       
       // Tentar diferentes seletores para o campo de texto
       const selectors = [
@@ -1942,18 +1783,15 @@ function handleChatGPTIntegration() {
       for (const selector of selectors) {
         textArea = document.querySelector(selector);
         if (textArea) {
-          console.log(`[ChatGPT] ✅ Campo de texto encontrado usando: ${selector}`);
           break;
         }
       }
       
       if (!textArea) {
-        console.log('[ChatGPT] ⏳ Campo de texto não encontrado, tentando novamente em 1 segundo...');
         setTimeout(fillChatGPTTextArea, 1000);
         return;
       }
       
-      console.log('[ChatGPT] 🧹 Limpando campo de texto...');
       
       // Limpar o campo
       if (textArea.tagName === 'TEXTAREA') {
@@ -1964,7 +1802,6 @@ function handleChatGPTIntegration() {
         textArea.focus();
       }
       
-      console.log('[ChatGPT] 📝 Inserindo transcrição no campo...');
       
       // Inserir a transcrição
       const prompt = `Resuma pra mim
@@ -1978,19 +1815,15 @@ Por favor, estruture o resumo de forma clara e organizada.`;
         textArea.value = prompt;
         // Disparar evento de input
         textArea.dispatchEvent(new Event('input', { bubbles: true }));
-        console.log('[ChatGPT] ✅ Texto inserido em textarea');
       } else if (textArea.contentEditable === 'true') {
         textArea.innerHTML = '<p>' + prompt.replace(/\n/g, '</p><p>') + '</p>';
         // Disparar evento de input
         textArea.dispatchEvent(new Event('input', { bubbles: true }));
-        console.log('[ChatGPT] ✅ Texto inserido em contenteditable');
       }
       
-      console.log('[ChatGPT] ⏳ Aguardando 500ms para pressionar Enter...');
       
       // Aguardar um pouco e pressionar Enter
       setTimeout(() => {
-        console.log('[ChatGPT] ⌨️ Simulando pressionar Enter...');
         
         // Simular pressionar Enter
         const enterEvent = new KeyboardEvent('keydown', {
@@ -2006,17 +1839,627 @@ Por favor, estruture o resumo de forma clara e organizada.`;
         
         // Limpar a transcrição do chrome.storage após usar
         chrome.storage.local.remove(['youtubeTranscription'], () => {
-          console.log('[ChatGPT] 🧹 Transcrição removida do chrome.storage');
         });
         
-        console.log('[ChatGPT] 🎉 Transcrição inserida e enviada com sucesso!');
       }, 500);
     }
     
-    console.log('[ChatGPT] ⏳ Aguardando 2 segundos para página carregar completamente...');
     
     // Aguardar um pouco para a página carregar completamente
     setTimeout(fillChatGPTTextArea, 2000);
   });
 }
 
+
+// =================================================================================================
+// NOVA IMPLEMENTAÇÃO: LEGENDAS INTELIGENTES (SMART CAPTIONS)
+// =================================================================================================
+
+// Utilitários de Tempo
+function formatTimestamp(seconds) {
+  const date = new Date(0);
+  date.setSeconds(seconds);
+  const iso = date.toISOString();
+  if (seconds < 3600) {
+    return iso.substr(14, 5); // mm:ss
+  }
+  return iso.substr(11, 8); // hh:mm:ss
+}
+
+function parseTimestampToSeconds(timestamp) {
+  const parts = timestamp.split(':').map(Number);
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  return 0;
+}
+
+// ----------------------------------------------------------------
+// 1. Extração de Transcrição COM TIMESTAMPS
+// ----------------------------------------------------------------
+
+// Versão adaptada para buscar segmentos com tempo
+async function getVideoTranscriptionWithTimestamps(videoId) {
+  try {
+    // Tentar API interna primeiro
+    const transcriptFromApi = await downloadTranscriptSegments(videoId);
+    if (transcriptFromApi && transcriptFromApi.length > 0) {
+      return transcriptFromApi;
+    }
+    
+    // Fallback: Método XML antigo
+    // Reutiliza lógica de extração de metadata, mas chama versão específica de download
+    const html = await fetchVideoPageHTML(videoId);
+    if (!html) return null;
+    
+    const transcriptionData = extractTranscriptionData(html);
+    if (!transcriptionData || transcriptionData.length === 0) return null;
+    
+    const selectedCaption = selectBestCaptionFromData(transcriptionData);
+    
+    const transcriptFromFallback = await downloadTranscriptXMLFallbackWithTimestamps(selectedCaption);
+    return transcriptFromFallback;
+    
+  } catch (error) {
+    return null;
+  }
+}
+
+async function downloadTranscriptSegments(videoId) {
+  try {
+    const url = 'https://www.youtube.com/youtubei/v1/get_transcript?prettyPrint=false';
+    const params = await generateTranscriptParams(videoId);
+    
+    if (!params) return null;
+
+    const requestBody = {
+      context: {
+        client: {
+          clientName: "WEB",
+          clientVersion: "2.20250630.00.00"
+        }
+      },
+      params: params
+    };
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) return null;
+    
+    const jsonResponse = await response.json();
+    return extractSegmentsFromApiResponse(jsonResponse);
+    
+  } catch (error) {
+    return null;
+  }
+}
+
+function extractSegmentsFromApiResponse(apiResponse) {
+  try {
+    const segments = [];
+    
+    // Navegar pela estrutura complexa do JSON do YouTube
+    if (apiResponse.actions) {
+      for (const action of apiResponse.actions) {
+        const transcriptRenderer = 
+          action.updateEngagementPanelAction?.content?.transcriptRenderer ||
+          action.updateEngagementPanelAction?.content?.transcriptSearchPanelRenderer ||
+          action.appendContinuationItemsAction?.continuationItems?.[0]?.transcriptRenderer;
+          
+        if (transcriptRenderer) {
+          const rawSegments = 
+            transcriptRenderer.content?.transcriptSearchPanelRenderer?.body?.transcriptSegmentListRenderer?.initialSegments ||
+            transcriptRenderer.body?.transcriptSegmentListRenderer?.initialSegments ||
+            transcriptRenderer.initialSegments;
+            
+          if (rawSegments && Array.isArray(rawSegments)) {
+            console.log("DEBUG: Primeiro segmento raw:", JSON.stringify(rawSegments[0], null, 2));
+            
+            rawSegments.forEach((segment, idx) => {
+              const renderer = segment.transcriptSegmentRenderer;
+              if (renderer) {
+                // Tentar múltiplos campos para o timestamp
+                let startMs = 0;
+                if (renderer.startMs !== undefined) {
+                  startMs = parseInt(renderer.startMs, 10);
+                } else if (renderer.startTimeMs !== undefined) {
+                  startMs = parseInt(renderer.startTimeMs, 10);
+                } else if (renderer.startOffsetMs !== undefined) {
+                  startMs = parseInt(renderer.startOffsetMs, 10);
+                }
+                
+                // Log dos primeiros segmentos para debug
+                if (idx < 3) {
+                  console.log(`DEBUG: Segmento ${idx} - startMs: ${startMs}, renderer keys:`, Object.keys(renderer));
+                }
+                
+                const text = renderer.snippet?.runs?.map(r => r.text).join('') || '';
+                if (text.trim()) {
+                  segments.push({
+                    start: startMs / 1000,
+                    text: text.trim()
+                  });
+                }
+              }
+            });
+          }
+        }
+      }
+    }
+    
+    // Log para verificar timestamps extraídos
+    if (segments.length > 0) {
+      console.log("DEBUG: Primeiros 5 segmentos extraídos:", segments.slice(0, 5));
+      console.log("DEBUG: Últimos 3 segmentos extraídos:", segments.slice(-3));
+    }
+    
+    return segments.length > 0 ? segments : null;
+  } catch (error) {
+    console.error("DEBUG: Erro ao extrair segmentos:", error);
+    return null;
+  }
+}
+
+async function downloadTranscriptXMLFallbackWithTimestamps(selectedCaption) {
+  try {
+    if (!selectedCaption || !selectedCaption.link) return null;
+    
+    const xmlUrl = selectedCaption.link.includes('&fmt=xml') ? selectedCaption.link : `${selectedCaption.link}&fmt=xml`;
+    const response = await fetch(xmlUrl);
+    if (!response.ok) return null;
+    
+    const xmlContent = await response.text();
+    return parseTranscriptXMLToSegments(xmlContent);
+  } catch (error) {
+    return null;
+  }
+}
+
+function parseTranscriptXMLToSegments(xmlContent) {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+    const textElements = xmlDoc.getElementsByTagName("text");
+    
+    const segments = [];
+    Array.from(textElements).forEach(element => {
+      const start = parseFloat(element.getAttribute("start") || "0");
+      const text = element.textContent?.trim();
+      
+      if (text) {
+        segments.push({
+          start: start,
+          text: text
+        });
+      }
+    });
+    
+    return segments;
+  } catch (error) {
+    return null;
+  }
+}
+
+// ----------------------------------------------------------------
+// 2. Sistema de Legendas Inteligentes (Smart Captions)
+// ----------------------------------------------------------------
+
+class SmartSubtitleSystem {
+  constructor() {
+    this.active = false;
+    this.currentVideoId = null;
+    this.transcriptionSegments = null;
+    this.rewrittenSubtitles = null;
+    this.overlayElement = null;
+    this.subtitleElement = null;
+    this.checkInterval = null;
+    this.toggleButton = null;
+    
+    // Cache de legendas reescritas por videoId
+    this.subtitlesCache = {};
+    
+    this.init();
+  }
+
+  init() {
+    // Verificar mudança de vídeo periodicamente
+    setInterval(() => this.checkVideoChange(), 2000);
+    
+    // Escutar eventos de navegação
+    document.addEventListener('yt-navigate-finish', () => this.checkVideoChange());
+  }
+
+  async checkVideoChange() {
+    if (!window.location.href.includes('/watch?v=')) {
+      this.reset();
+      return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const newVideoId = urlParams.get('v');
+
+    if (newVideoId && newVideoId !== this.currentVideoId) {
+      this.currentVideoId = newVideoId;
+      this.reset(); // Reseta estado e botão ao mudar de vídeo
+      this.injectToggleButton(); // Adiciona botão no novo vídeo
+    } else if (newVideoId && !this.toggleButton) {
+       // Caso o botão tenha sumido (SPA re-render), injeta de novo
+       this.injectToggleButton();
+    }
+  }
+  
+  injectToggleButton() {
+    // Tentar encontrar a barra de controles da direita
+    const rightControls = document.querySelector('.ytp-right-controls');
+    if (!rightControls) return;
+    
+    if (document.getElementById('smart-captions-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'smart-captions-btn';
+    btn.className = 'ytp-button';
+    btn.setAttribute('title', 'Legendas Inteligentes (AI)');
+    btn.setAttribute('aria-label', 'Legendas Inteligentes (AI)');
+    // Ícone de Cérebro/AI simples
+    btn.innerHTML = `
+      <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%">
+        <path d="M18,10 c-4.4,0-8,3.6-8,8 c0,4.4,3.6,8,8,8 c4.4,0,8-3.6,8-8 C26,13.6,22.4,10,18,10 z M18,24 c-3.3,0-6-2.7-6-6 c0-3.3,2.7-6,6-6 s6,2.7,6,6 C24,21.3,21.3,24,18,24 z" fill="white" fill-opacity="0.8"></path>
+        <path d="M18,13 L18,16 L21,16" fill="none" stroke="white" stroke-width="2"></path>
+      </svg>
+    `;
+    
+    // Estilo para feedback visual de ativo
+    const style = document.createElement('style');
+    style.textContent = `
+      #smart-captions-btn.active path { fill: #4285f4 !important; fill-opacity: 1 !important; }
+      #smart-captions-btn.active { opacity: 1 !important; }
+    `;
+    if (!document.getElementById('smart-captions-btn-style')) {
+      style.id = 'smart-captions-btn-style';
+      document.head.appendChild(style);
+    }
+
+    btn.onclick = () => this.toggle();
+    
+    // Inserir antes do botão de configurações (gear)
+    rightControls.prepend(btn);
+    this.toggleButton = btn;
+  }
+
+  toggle() {
+    if (this.active) {
+      this.stop();
+    } else {
+      this.start(this.currentVideoId);
+    }
+  }
+
+  async start(videoId) {
+    if (!videoId) return;
+    this.active = true;
+    if (this.toggleButton) this.toggleButton.classList.add('active');
+    
+    // 1. Criar UI de Loading
+    this.createOverlay();
+    
+    // 2. Verificar se já existe cache para este vídeo
+    if (this.subtitlesCache[videoId]) {
+      console.log("DEBUG: Usando legendas do cache para vídeo:", videoId);
+      this.rewrittenSubtitles = this.subtitlesCache[videoId];
+      this.startSyncLoop();
+      this.updateOverlayStatus("", false);
+      return;
+    }
+    
+    // 3. Se não tem cache, buscar e processar
+    this.updateOverlayStatus("Identificando vídeo...", true);
+
+    // 4. Obter Transcrição com Timestamp
+    try {
+      const segments = await getVideoTranscriptionWithTimestamps(videoId);
+      
+      if (!segments || segments.length === 0) {
+        this.updateOverlayStatus("Legendas não disponíveis para este vídeo.", false, 3000);
+        this.stop(); // Desliga se não tiver legenda
+        return;
+      }
+
+      this.transcriptionSegments = segments;
+      this.updateOverlayStatus("Gerando legendas inteligentes...", true);
+
+      // 5. Processar com Gemini (vai salvar no cache automaticamente)
+      await this.processWithGemini(segments, videoId);
+
+    } catch (error) {
+      this.updateOverlayStatus("Erro ao gerar legendas.", false, 3000);
+      this.stop();
+    }
+  }
+
+  reset() {
+    this.stop();
+    // Remove botão antigo se existir para recriar limpo
+    const oldBtn = document.getElementById('smart-captions-btn');
+    if (oldBtn) oldBtn.remove();
+    this.toggleButton = null;
+    // Nota: Cache é mantido por videoId, então não limpa aqui
+    // Isso permite que se o usuário voltar ao vídeo, use o cache
+  }
+
+  stop() {
+    this.active = false;
+    if (this.checkInterval) clearInterval(this.checkInterval);
+    this.removeOverlay();
+    this.transcriptionSegments = null;
+    this.rewrittenSubtitles = null;
+    if (this.toggleButton) this.toggleButton.classList.remove('active');
+  }
+
+  // Monta o prompt e chama o Gemini
+  async processWithGemini(segments, videoId) {
+    // Criar um mapa dos timestamps originais em segundos para uso posterior (ARRAY)
+    this.originalTimestampsMap = segments.map(seg => ({
+      seconds: seg.start,
+      originalText: seg.text
+    }));
+
+    console.log("DEBUG: Timestamps originais (primeiros 5):", this.originalTimestampsMap.slice(0, 5));
+    console.log("DEBUG: Timestamps originais (últimos 3):", this.originalTimestampsMap.slice(-3));
+
+    // Formatar transcrição com índices para garantir correspondência exata
+    let formattedTranscription = "";
+    segments.forEach((seg, index) => {
+      formattedTranscription += `[${index}] ${seg.text}\n`;
+    });
+
+    console.log("DEBUG: Transcrição enviada para o Gemini (início):", formattedTranscription.substring(0, 500) + "...");
+    console.log("DEBUG: Total de segmentos originais:", segments.length);
+
+    const prompt = `
+Você é um especialista em legendagem.
+Sua tarefa é APENAS reescrever os textos abaixo para ficarem mais fluídos e naturais em Português do Brasil.
+
+**REGRAS CRÍTICAS:**
+1. **NÃO ALTERE OS ÍNDICES** - Cada linha começa com [número]. Você DEVE manter EXATAMENTE os mesmos índices na resposta.
+2. **NÃO AGRUPE NEM DIVIDA** - Mantenha a mesma quantidade de linhas. Se recebeu 50 linhas, retorne 50 linhas.
+3. **REESCRITA SIMPLES** - Apenas corrija erros de fala, repetições e deixe o texto natural. Mantenha o sentido original.
+4. **FORMATO:** Responda APENAS com um JSON onde a chave é o índice (número) e o valor é o texto reescrito:
+
+\`\`\`json
+{
+  "0": "Texto reescrito da linha 0...",
+  "1": "Texto reescrito da linha 1...",
+  "2": "Texto reescrito da linha 2..."
+}
+\`\`\`
+
+**Transcrição Original (${segments.length} segmentos):**
+${formattedTranscription}
+`;
+
+    try {
+      const responseText = await callGeminiAPI(prompt);
+      
+      console.log("DEBUG: Resposta bruta do Gemini:", responseText);
+
+      // Limpar markdown ```json ... ``` se houver
+      let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const rewrittenByIndex = JSON.parse(cleanJson);
+      
+      console.log("DEBUG: JSON parseado com sucesso. Total de legendas reescritas:", Object.keys(rewrittenByIndex).length);
+
+      // Reconstruir legendas como ARRAY com os timestamps ORIGINAIS em segundos
+      this.rewrittenSubtitles = [];
+      
+      this.originalTimestampsMap.forEach((item, index) => {
+        const indexStr = String(index);
+        // Usa o texto reescrito se existir, senão mantém o original
+        const rewrittenText = rewrittenByIndex[indexStr] || item.originalText;
+        this.rewrittenSubtitles.push({
+          seconds: item.seconds,
+          text: rewrittenText
+        });
+      });
+      
+      // Ordenar por tempo
+      this.rewrittenSubtitles.sort((a, b) => a.seconds - b.seconds);
+      
+      console.log("DEBUG: Legendas reconstruídas com timestamps originais. Total:", this.rewrittenSubtitles.length);
+      console.log("DEBUG: Primeiras 5 legendas:", this.rewrittenSubtitles.slice(0, 5));
+      console.log("DEBUG: Últimas 3 legendas:", this.rewrittenSubtitles.slice(-3));
+
+      // Salvar no cache para este vídeo
+      if (videoId) {
+        // Criar uma cópia do array para o cache (evitar referência)
+        this.subtitlesCache[videoId] = this.rewrittenSubtitles.map(item => ({
+          seconds: item.seconds,
+          text: item.text
+        }));
+        console.log("DEBUG: Legendas salvas no cache para vídeo:", videoId);
+      }
+
+      // Iniciar loop de sincronização
+      this.startSyncLoop();
+      this.updateOverlayStatus("", false); 
+      
+    } catch (e) {
+      console.error("DEBUG: Erro ao processar/parsear Gemini:", e);
+      this.updateOverlayStatus("Erro ao processar IA.", false, 3000);
+    }
+  }
+
+  startSyncLoop() {
+    if (this.checkInterval) clearInterval(this.checkInterval);
+    
+    const video = document.querySelector('video');
+    if (!video) return;
+
+    // Agora this.rewrittenSubtitles já é um array ordenado por segundos
+    const subtitlesMap = this.rewrittenSubtitles;
+    
+    console.log("DEBUG: Iniciando sync loop. Total de legendas:", subtitlesMap.length);
+    if (subtitlesMap.length > 0) {
+      console.log("DEBUG: Primeira legenda:", subtitlesMap[0]);
+      console.log("DEBUG: Última legenda:", subtitlesMap[subtitlesMap.length - 1]);
+    }
+
+    let lastShownSubtitle = null;
+
+    this.checkInterval = setInterval(() => {
+      if (!this.active || !this.rewrittenSubtitles || this.rewrittenSubtitles.length === 0) return;
+      
+      const currentTime = video.currentTime;
+      
+      // Encontrar o subtítulo atual
+      let currentSubtitle = null;
+      
+      // Percorre para achar o segmento ativo mais recente (start <= current)
+      for (let i = 0; i < subtitlesMap.length; i++) {
+        if (subtitlesMap[i].seconds <= currentTime) {
+          currentSubtitle = subtitlesMap[i];
+        } else {
+          break;
+        }
+      }
+
+      if (currentSubtitle) {
+        // Log de sincronização apenas quando mudar o bloco
+        if (lastShownSubtitle !== currentSubtitle.text) {
+          console.log(`DEBUG: Sincronização - Tempo Vídeo: ${currentTime.toFixed(1)}s | Legenda: [${formatTimestamp(currentSubtitle.seconds)}] "${currentSubtitle.text}"`);
+          lastShownSubtitle = currentSubtitle.text;
+        }
+        this.showSubtitle(currentSubtitle.text);
+      }
+    }, 200); // Verifica a cada 200ms para maior precisão
+  }
+
+  // ----------------------------------------------------------------
+  // UI - Layout Moderno Suspenso
+  // ----------------------------------------------------------------
+  
+  createOverlay() {
+    if (document.getElementById('smart-captions-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'smart-captions-overlay';
+    
+    // Estilos Injetados via JS para garantir isolamento
+    Object.assign(overlay.style, {
+      position: 'absolute',
+      bottom: '100px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: '80%',
+      maxWidth: '800px',
+      textAlign: 'center',
+      zIndex: '9999',
+      pointerEvents: 'none', // Deixar clicar no vídeo através da legenda
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '10px',
+      transition: 'opacity 0.3s ease'
+    });
+
+    // Container do texto
+    const textContainer = document.createElement('div');
+    textContainer.id = 'smart-captions-text';
+    Object.assign(textContainer.style, {
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      color: '#ffffff',
+      padding: '12px 24px',
+      borderRadius: '12px',
+      fontSize: '20px',
+      lineHeight: '1.5',
+      fontFamily: '"YouTube Sans", Roboto, Arial, sans-serif',
+      fontWeight: '500',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      backdropFilter: 'blur(4px)',
+      opacity: '0', // Começa invisível
+      transition: 'opacity 0.3s ease, transform 0.3s ease',
+      textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+    });
+
+    // Status (loading etc)
+    const statusContainer = document.createElement('div');
+    statusContainer.id = 'smart-captions-status';
+    Object.assign(statusContainer.style, {
+      fontSize: '14px',
+      color: '#aaa',
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      padding: '4px 12px',
+      borderRadius: '16px',
+      display: 'none'
+    });
+
+    overlay.appendChild(statusContainer);
+    overlay.appendChild(textContainer);
+
+    // Inserir no container do vídeo para acompanhar Fullscreen
+    const videoContainer = document.querySelector('#movie_player') || document.body;
+    videoContainer.appendChild(overlay);
+    
+    this.overlayElement = overlay;
+    this.subtitleElement = textContainer;
+  }
+
+  removeOverlay() {
+    const el = document.getElementById('smart-captions-overlay');
+    if (el) el.remove();
+    this.overlayElement = null;
+    this.subtitleElement = null;
+  }
+
+  updateOverlayStatus(message, isLoading, autoHideMs = 0) {
+    if (!this.overlayElement) return;
+    
+    const statusEl = this.overlayElement.querySelector('#smart-captions-status');
+    if (message) {
+      statusEl.innerHTML = isLoading ? 
+        `<span class="smart-spinner" style="display:inline-block;width:10px;height:10px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;"></span>${message}` : 
+        message;
+      
+      // Adicionar keyframe spin se não existir
+      if (!document.getElementById('smart-captions-style')) {
+        const style = document.createElement('style');
+        style.id = 'smart-captions-style';
+        style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
+        document.head.appendChild(style);
+      }
+
+      statusEl.style.display = 'flex';
+      statusEl.style.alignItems = 'center';
+    } else {
+      statusEl.style.display = 'none';
+    }
+
+    if (autoHideMs > 0) {
+      setTimeout(() => {
+        statusEl.style.display = 'none';
+      }, autoHideMs);
+    }
+  }
+
+  showSubtitle(text) {
+    if (!this.subtitleElement) return;
+    
+    // Se o texto for igual ao atual, não faz nada (evita animação desnecessária)
+    if (this.subtitleElement.textContent === text && this.subtitleElement.style.opacity === '1') return;
+
+    // Animação suave de troca
+    this.subtitleElement.textContent = text;
+    this.subtitleElement.style.opacity = '1';
+    this.subtitleElement.style.transform = 'translateY(0)';
+  }
+}
+
+// Inicializar o sistema
+const smartCaptions = new SmartSubtitleSystem();
