@@ -387,552 +387,53 @@ Por favor, estruture o resumo de forma clara e organizada, usando markdown para 
   }
 }
 
-// Novo método usando API interna do YouTube
+// Novo método usando a classe YoutubeTranscript
 async function getVideoTranscription(videoId) {
+  console.log(`[SmartCaptions] === getVideoTranscription chamada ===`);
+  console.log(`[SmartCaptions] VideoId: ${videoId}`);
+  console.log(`[SmartCaptions] YoutubeTranscript disponível: ${typeof YoutubeTranscript !== 'undefined'}`);
+  
   try {
-    
-    // Tentar primeiro com a API interna do YouTube (mais confiável)
-    const transcriptFromApi = await downloadTranscriptXML(videoId);
-    
-    if (transcriptFromApi) {
-      return transcriptFromApi;
-    }
-    
-    // Se a API interna falhar, usar o método fallback já implementado
-    
-    // Obter HTML da página
-    const html = await fetchVideoPageHTML(videoId);
-    if (!html) {
-      throw new Error('Não foi possível obter o HTML da página');
-    }
-    
-    // Extrair dados de transcrição
-    const transcriptionData = extractTranscriptionData(html);
-    if (!transcriptionData || transcriptionData.length === 0) {
-      throw new Error('Nenhuma transcrição disponível para este vídeo');
-    }
-    
-    // Selecionar melhor opção
-    const selectedCaption = selectBestCaptionFromData(transcriptionData);
-    
-    // Baixar via método antigo
-    const transcriptFromFallback = await downloadTranscriptXMLFallback(videoId);
-    
-    if (!transcriptFromFallback) {
-      throw new Error('Todos os métodos de extração falharam');
-    }
-    
-    return transcriptFromFallback;
-    
-  } catch (error) {
-    return null;
-  }
-}
-
-// Passo 1: Obter o conteúdo HTML da página do vídeo
-async function fetchVideoPageHTML(videoId) {
-  try {
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
-    
-    // Cabeçalho User-Agent para simular um navegador real
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Erro HTTP: ${response.status}`);
-    }
-    
-    const html = await response.text();
-    return html;
-  } catch (error) {
-    return null;
-  }
-}
-
-// Extrair legendas usando split simples (baseado na lógica fv)
-function extractCaptionTracks(html) {
-  try {
-    
-    const parts = html.split('"captions":');
-    if (parts.length < 2) {
-      throw new Error('Youtube caption is not found');
-    }
+    // Tentar primeiro em português, depois sem idioma específico
+    let segments = null;
     
     try {
-      const captionsPart = parts[1].split(',"videoDetails')[0].replace('\n', '');
-      const captionsData = JSON.parse(captionsPart);
-      return captionsData.playerCaptionsTracklistRenderer.captionTracks;
-    } catch (error) {
-      throw new Error('Youtube caption is not found');
+      console.log('[SmartCaptions] Tentativa 1: buscando em português (pt)...');
+      segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'pt' });
+    } catch (ptError) {
+      console.warn(`[SmartCaptions] Falha ao buscar em pt: ${ptError.message}`);
+      console.log('[SmartCaptions] Tentativa 2: buscando em qualquer idioma...');
+      try {
+        segments = await YoutubeTranscript.fetchTranscript(videoId, {});
+      } catch (anyError) {
+        console.error(`[SmartCaptions] Falha ao buscar em qualquer idioma: ${anyError.message}`);
+        throw anyError;
+      }
     }
+    
+    if (segments && segments.length > 0) {
+      const fullText = segments.map(s => s.text).join(' ');
+      console.log(`[SmartCaptions] SUCESSO: ${segments.length} segmentos, ${fullText.length} caracteres`);
+      console.log(`[SmartCaptions] Preview: "${fullText.substring(0, 150)}..."`);
+      return fullText;
+    }
+    
+    console.warn('[SmartCaptions] Nenhuma transcrição encontrada (segments vazio).');
+    return null;
+    
   } catch (error) {
+    console.error("[SmartCaptions] Erro ao obter transcrição:", error);
+    console.error("[SmartCaptions] Tipo do erro:", error.constructor.name);
+    console.error("[SmartCaptions] Mensagem:", error.message);
     return null;
   }
 }
 
-// Extrair título do vídeo (baseado na lógica pv)
-function extractVideoTitle(html) {
-  try {
-    const parts = html.split('"title":"');
-    if (parts.length < 2) {
-      throw new Error('Youtube title is not found');
-    }
-    return parts[1].split('","lengthSeconds"')[0] || '';
-  } catch (error) {
-    return '';
-  }
-}
 
-// Função principal para extrair dados de transcrição (baseado na lógica dv)
-function extractTranscriptionData(html) {
-  try {
-    
-    if (!html || !html.trim()) {
-      return [];
-    }
-
-    const captionTracks = extractCaptionTracks(html);
-    const title = extractVideoTitle(html);
-    
-    if (!captionTracks || captionTracks.length === 0) {
-      return [];
-    }
-    
-    
-    // Criar mapa de legendas por nome para evitar duplicatas
-    const trackMap = new Map(captionTracks.map(track => [track.name.simpleText, track]));
-    const languages = Array.from(trackMap.keys());
-    
-    // Priorizar Português, depois Inglês
-    const targetLanguage = "Português";
-    const englishLanguage = "English";
-    
-    // Ordenar: Português primeiro, depois Inglês, depois outros
-    const sortedLanguages = languages.sort((a, b) => {
-      if (a.includes(targetLanguage)) return -1;
-      if (b.includes(targetLanguage)) return 1;
-      if (a.includes(englishLanguage)) return -1;
-      if (b.includes(englishLanguage)) return 1;
-      return 0;
-    }).sort((a, b) => {
-      if (a === targetLanguage) return -1;
-      if (b === targetLanguage) return 1;
-      if (a === englishLanguage) return -1;
-      if (b === englishLanguage) return 1;
-      return 0;
-    });
-
-    // Mapear para o formato esperado
-    return sortedLanguages.map(languageName => {
-      const track = trackMap.get(languageName);
-      const vssId = track.vssId?.startsWith('.') ? track.vssId.slice(1) : track.vssId || '';
-      
-      
-      return {
-        language: languageName,
-        link: track.baseUrl || '',
-        title: title,
-        vssId: vssId,
-        languageCode: track.languageCode
-      };
-    });
-    
-  } catch (error) {
-    return [];
-  }
-}
-
-// Selecionar a melhor opção de transcrição da lista processada
-function selectBestCaptionFromData(transcriptionData) {
-  
-  // Priorizar português, depois inglês
-  const priorities = [
-    // 1. Português (qualquer variação)
-    item => item.languageCode === 'pt' || item.language.toLowerCase().includes('português'),
-    // 2. Inglês 
-    item => item.languageCode === 'en' || item.language.toLowerCase().includes('english'),
-    // 3. Qualquer outro
-    item => true
-  ];
-  
-  for (const priority of priorities) {
-    const selected = transcriptionData.find(priority);
-    if (selected) {
-      return selected;
-    }
-  }
-  
-  // Fallback para o primeiro disponível
-  return transcriptionData[0];
-}
-
-// Baixar transcrição usando a API interna do YouTube
-async function downloadTranscriptXML(videoId, transcriptParams) {
-  try {
-    
-    // Usar a API interna que funciona
-    const url = 'https://www.youtube.com/youtubei/v1/get_transcript?prettyPrint=false';
-    
-    const requestBody = {
-      context: {
-        client: {
-          clientName: "WEB",
-          clientVersion: "2.20250630.00.00"
-        }
-      },
-      params: transcriptParams || await generateTranscriptParams(videoId)
-    };
-    
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'accept': '*/*',
-        'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-        'cache-control': 'no-cache',
-        'content-type': 'application/json',
-        'pragma': 'no-cache',
-        'sec-ch-ua': '"Google Chrome";v="138", "Chromium";v="138", "Not)A;Brand";v="8"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-        'Referer': 'https://www.youtube.com/'
-      },
-      body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Erro HTTP na API interna: ${response.status} - ${response.statusText}`);
-    }
-    
-    const jsonResponse = await response.json();
-    
-    // Extrair texto da resposta JSON
-    const transcriptText = extractTextFromApiResponse(jsonResponse);
-    
-    if (!transcriptText) {
-      throw new Error('Não foi possível extrair texto da resposta da API');
-    }
-    
-    return transcriptText;
-    
-  } catch (error) {
-    
-    // Fallback para o método antigo se a API interna falhar
-    return await downloadTranscriptXMLFallback(videoId);
-  }
-}
-
-// Gerar parâmetros para a API de transcrição
-async function generateTranscriptParams(videoId) {
-  try {
-    
-    // Tentar extrair params do HTML da página
-    const html = await fetchVideoPageHTML(videoId);
-    if (html) {
-      const extractedParams = extractTranscriptParams(html);
-      if (extractedParams) {
-        return extractedParams;
-      }
-    }
-    
-    // Tentar gerar params usando o padrão que funciona
-    const generatedParams = generateParamsFromVideoId(videoId);
-    if (generatedParams) {
-      return generatedParams;
-    }
-    
-    // Se não conseguir extrair, usar formato básico
-    const basicParams = btoa(`${videoId}\x12\x12\x0a\x0basr\x12\x02pt\x1a\x00`);
-    return basicParams;
-    
-  } catch (error) {
-    return null;
-  }
-}
-
-// Gerar params usando padrão conhecido (baseado no exemplo que funciona)
-function generateParamsFromVideoId(videoId) {
-  try {
-    
-    // Estrutura baseada no exemplo que funciona
-    // O exemplo decodificado contém informações sobre o vídeo e configurações de transcrição
-    
-    // Construir a estrutura base
-    const protoData = {
-      videoId: videoId,
-      // Configurações de transcrição automática
-      transcriptConfig: {
-        language: 'pt',
-        type: 'asr' // automatic speech recognition
-      },
-      // Configurações do painel de engajamento
-      panelConfig: {
-        searchable: true,
-        type: 'transcript-search-panel'
-      }
-    };
-    
-    // Tentar construir params similar ao exemplo
-    // CgtTbnZDcE1oT1YzaxISQ2dOaGMzSVNBbkIwR2dBJTNEGAEqM2VuZ2FnZW1lbnQtcGFuZWwtc2VhcmNoYWJsZS10cmFuc2NyaXB0LXNlYXJjaC1wYW5lbDAAOAFAAQ%3D%3D
-    
-    // Construir manualmente seguindo o padrão
-    const paramString = `\x0a\x0b${videoId}\x12\x12\x0a\x0basr\x12\x02pt\x1a\x00\x18\x01*3engagement-panel-searchable-transcript-search-panel\x00\x008\x01@\x01`;
-    
-    const encodedParams = btoa(paramString);
-    
-    return encodedParams;
-    
-  } catch (error) {
-    return null;
-  }
-}
-
-// Extrair parâmetros de transcrição do HTML
-function extractTranscriptParams(html) {
-  try {
-    
-    // Padrões mais específicos para encontrar params de transcrição
-    const patterns = [
-      // Padrão mais comum - getTranscriptEndpoint
-      /"getTranscriptEndpoint":\s*{\s*"params":\s*"([^"]+)"/,
-      // Padrão alternativo 
-      /"transcriptCommand":\s*{\s*"getTranscriptEndpoint":\s*{\s*"params":\s*"([^"]+)"/,
-      // Padrão em clickCommand
-      /"clickCommand":\s*{\s*"getTranscriptEndpoint":\s*{\s*"params":\s*"([^"]+)"/,
-      // Padrão genérico
-      /"params":\s*"([^"]+)"[^}]*transcript/i,
-      // Padrão em transcriptRenderer  
-      /"transcriptRenderer"[^}]*"params":\s*"([^"]+)"/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-    
-    // Tentar encontrar params através da análise de botões de transcrição
-    const transcriptButtonMatch = html.match(/"text":\s*"Transcrição"[^}]*}/);
-    if (transcriptButtonMatch) {
-      
-      // Procurar params nas proximidades do botão de transcrição
-      const nearbyParamsMatch = html.substring(Math.max(0, transcriptButtonMatch.index - 2000), transcriptButtonMatch.index + 2000)
-        .match(/"params":\s*"([^"]+)"/);
-      
-      if (nearbyParamsMatch) {
-        return nearbyParamsMatch[1];
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    return null;
-  }
-}
-
-// Extrair texto da resposta da API
-function extractTextFromApiResponse(apiResponse) {
-  try {
-    
-    // Log da estrutura para debug
-    
-    // Método 1: Formato com actions (mais comum)
-    if (apiResponse.actions && Array.isArray(apiResponse.actions)) {
-      
-      for (const action of apiResponse.actions) {
-        // Tentar diferentes caminhos para transcriptRenderer
-        const transcriptRenderer = 
-          action.updateEngagementPanelAction?.content?.transcriptRenderer ||
-          action.updateEngagementPanelAction?.content?.transcriptSearchPanelRenderer ||
-          action.appendContinuationItemsAction?.continuationItems?.[0]?.transcriptRenderer;
-        
-        if (transcriptRenderer) {
-          // Tentar extrair de diferentes estruturas
-          let segments = 
-            transcriptRenderer.content?.transcriptSearchPanelRenderer?.body?.transcriptSegmentListRenderer?.initialSegments ||
-            transcriptRenderer.body?.transcriptSegmentListRenderer?.initialSegments ||
-            transcriptRenderer.initialSegments;
-          
-          if (segments && Array.isArray(segments)) {
-            
-            const textParts = segments.map(segment => {
-              const renderer = segment.transcriptSegmentRenderer;
-              if (renderer && renderer.snippet && renderer.snippet.runs) {
-                return renderer.snippet.runs.map(run => run.text || '').join('');
-              }
-              return '';
-            }).filter(text => text.trim().length > 0);
-            
-            if (textParts.length > 0) {
-              const fullText = textParts.join(' ');
-              return fullText;
-            }
-          }
-        }
-      }
-    }
-    
-    // Método 2: Formato direto com transcript
-    if (apiResponse.transcript && Array.isArray(apiResponse.transcript)) {
-      const textParts = apiResponse.transcript.map(item => item.text || '').filter(text => text.trim().length > 0);
-      if (textParts.length > 0) {
-        const fullText = textParts.join(' ');
-        return fullText;
-      }
-    }
-    
-    // Método 3: Formato com segments
-    if (apiResponse.segments && Array.isArray(apiResponse.segments)) {
-      const textParts = apiResponse.segments.map(segment => 
-        segment.text || segment.snippet?.text || ''
-      ).filter(text => text.trim().length > 0);
-      
-      if (textParts.length > 0) {
-        const fullText = textParts.join(' ');
-        return fullText;
-      }
-    }
-    
-    // Método 4: Busca recursiva por qualquer campo com 'text'
-    const extractedText = recursiveTextSearch(apiResponse);
-    if (extractedText) {
-      return extractedText;
-    }
-    
-    return null;
-    
-  } catch (error) {
-    return null;
-  }
-}
-
-// Função auxiliar para busca recursiva de texto
-function recursiveTextSearch(obj, maxDepth = 5, currentDepth = 0) {
-  if (currentDepth > maxDepth) return null;
-  
-  if (typeof obj === 'string' && obj.length > 10) {
-    return obj;
-  }
-  
-  if (Array.isArray(obj)) {
-    const textParts = [];
-    for (const item of obj) {
-      if (typeof item === 'string' && item.length > 3) {
-        textParts.push(item);
-      } else if (typeof item === 'object' && item !== null) {
-        const result = recursiveTextSearch(item, maxDepth, currentDepth + 1);
-        if (result) textParts.push(result);
-      }
-    }
-    return textParts.length > 0 ? textParts.join(' ') : null;
-  }
-  
-  if (typeof obj === 'object' && obj !== null) {
-    // Procurar por campos específicos primeiro
-    if (obj.text && typeof obj.text === 'string' && obj.text.length > 3) {
-      return obj.text;
-    }
-    
-    // Procurar em runs (comum no YouTube)
-    if (obj.runs && Array.isArray(obj.runs)) {
-      const textParts = obj.runs.map(run => run.text || '').filter(text => text.trim().length > 0);
-      if (textParts.length > 0) return textParts.join('');
-    }
-    
-    // Buscar recursivamente em outros campos
-    for (const key of Object.keys(obj)) {
-      if (key.toLowerCase().includes('text') || key.toLowerCase().includes('transcript')) {
-        const result = recursiveTextSearch(obj[key], maxDepth, currentDepth + 1);
-        if (result) return result;
-      }
-    }
-  }
-  
-  return null;
-}
-
-// Método fallback usando o método antigo
-async function downloadTranscriptXMLFallback(videoId) {
-  try {
-    
-    // Obter dados de transcrição 
-    const html = await fetchVideoPageHTML(videoId);
-    if (!html) return null;
-    
-    const transcriptionData = extractTranscriptionData(html);
-    if (!transcriptionData || transcriptionData.length === 0) return null;
-    
-    const selectedCaption = selectBestCaptionFromData(transcriptionData);
-    if (!selectedCaption || !selectedCaption.link) return null;
-    
-    // Baixar XML do método antigo
-    const xmlUrl = selectedCaption.link.includes('&fmt=xml') ? selectedCaption.link : `${selectedCaption.link}&fmt=xml`;
-    
-    const response = await fetch(xmlUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
-      }
-    });
-    
-    if (!response.ok) return null;
-    
-    const xmlContent = await response.text();
-    return parseTranscriptXML(xmlContent);
-    
-  } catch (error) {
-    return null;
-  }
-}
-
-// Passo 5: Analisar o XML e Extrair o Texto Final
-function parseTranscriptXML(xmlContent) {
-  try {
-    
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-    
-    // Verificar se houve erro no parsing
-    const parseError = xmlDoc.querySelector('parsererror');
-    if (parseError) {
-      throw new Error('Erro ao fazer parse do XML');
-    }
-    
-    // Encontrar todas as tags <text>
-    const textElements = xmlDoc.getElementsByTagName("text");
-    
-    if (textElements.length === 0) {
-      throw new Error('Nenhuma tag <text> encontrada no XML');
-    }
-    
-    
-    // Extrair e concatenar todo o texto
-    const textParts = Array.from(textElements)
-      .map(element => {
-        const text = element.textContent?.trim();
-        return text ? text : '';
-      })
-      .filter(text => text.length > 0);
-    
-    const finalText = textParts.join(' ');
-    
-    return finalText;
-  } catch (error) {
-    return null;
-  }
-}
 
 // Função para extrair o ID do vídeo da URL do thumbnail
 function getVideoIdFromThumbnail(thumbnail) {
   try {
-    // Encontrar o elemento <a> dentro do thumbnail
     const linkElement = thumbnail.querySelector("a");
     let href = null;
     if (!linkElement) {
@@ -940,17 +441,22 @@ function getVideoIdFromThumbnail(thumbnail) {
     } else {
       href = linkElement.getAttribute("href");
     }
+    console.log(`[SmartCaptions] getVideoIdFromThumbnail - href encontrado: ${href}`);
     if (!href) {
+      console.warn('[SmartCaptions] getVideoIdFromThumbnail - nenhum href encontrado');
       return null;
     }
 
     const match = href.match(/[?&]v=([^&]+)/);
     if (match) {
+      console.log(`[SmartCaptions] getVideoIdFromThumbnail - videoId extraído: ${match[1]}`);
       return match[1];
     } else {
+      console.warn(`[SmartCaptions] getVideoIdFromThumbnail - não conseguiu extrair videoId de: ${href}`);
       return null;
     }
   } catch (error) {
+    console.error('[SmartCaptions] getVideoIdFromThumbnail - erro:', error);
     return null;
   }
 }
@@ -1881,171 +1387,53 @@ function parseTimestampToSeconds(timestamp) {
 // 1. Extração de Transcrição COM TIMESTAMPS
 // ----------------------------------------------------------------
 
-// Versão adaptada para buscar segmentos com tempo
+// ----------------------------------------------------------------
+// 1. Extração de Transcrição (Nova implementação baseada em youtube-transcript)
+// ----------------------------------------------------------------
+
+// Classe YoutubeTranscript removida pois agora é importada externamente via manifest.json
+
+// Versão adaptada para buscar segmentos com tempo usando a nova biblioteca oficial
 async function getVideoTranscriptionWithTimestamps(videoId) {
   try {
-    // Tentar API interna primeiro
-    const transcriptFromApi = await downloadTranscriptSegments(videoId);
-    if (transcriptFromApi && transcriptFromApi.length > 0) {
-      return transcriptFromApi;
-    }
+    console.log(`[SmartCaptions] Buscando transcrição para vídeo ${videoId}...`);
     
-    // Fallback: Método XML antigo
-    // Reutiliza lógica de extração de metadata, mas chama versão específica de download
-    const html = await fetchVideoPageHTML(videoId);
-    if (!html) return null;
+    // Usar a classe global YoutubeTranscript da biblioteca (que agora suporta auto-translate interno)
+    const segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'pt' });
     
-    const transcriptionData = extractTranscriptionData(html);
-    if (!transcriptionData || transcriptionData.length === 0) return null;
-    
-    const selectedCaption = selectBestCaptionFromData(transcriptionData);
-    
-    const transcriptFromFallback = await downloadTranscriptXMLFallbackWithTimestamps(selectedCaption);
-    return transcriptFromFallback;
-    
-  } catch (error) {
-    return null;
-  }
-}
-
-async function downloadTranscriptSegments(videoId) {
-  try {
-    const url = 'https://www.youtube.com/youtubei/v1/get_transcript?prettyPrint=false';
-    const params = await generateTranscriptParams(videoId);
-    
-    if (!params) return null;
-
-    const requestBody = {
-      context: {
-        client: {
-          clientName: "WEB",
-          clientVersion: "2.20250630.00.00"
-        }
-      },
-      params: params
-    };
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) return null;
-    
-    const jsonResponse = await response.json();
-    return extractSegmentsFromApiResponse(jsonResponse);
-    
-  } catch (error) {
-    return null;
-  }
-}
-
-function extractSegmentsFromApiResponse(apiResponse) {
-  try {
-    const segments = [];
-    
-    // Navegar pela estrutura complexa do JSON do YouTube
-    if (apiResponse.actions) {
-      for (const action of apiResponse.actions) {
-        const transcriptRenderer = 
-          action.updateEngagementPanelAction?.content?.transcriptRenderer ||
-          action.updateEngagementPanelAction?.content?.transcriptSearchPanelRenderer ||
-          action.appendContinuationItemsAction?.continuationItems?.[0]?.transcriptRenderer;
-          
-        if (transcriptRenderer) {
-          const rawSegments = 
-            transcriptRenderer.content?.transcriptSearchPanelRenderer?.body?.transcriptSegmentListRenderer?.initialSegments ||
-            transcriptRenderer.body?.transcriptSegmentListRenderer?.initialSegments ||
-            transcriptRenderer.initialSegments;
-            
-          if (rawSegments && Array.isArray(rawSegments)) {
-            console.log("DEBUG: Primeiro segmento raw:", JSON.stringify(rawSegments[0], null, 2));
-            
-            rawSegments.forEach((segment, idx) => {
-              const renderer = segment.transcriptSegmentRenderer;
-              if (renderer) {
-                // Tentar múltiplos campos para o timestamp
-                let startMs = 0;
-                if (renderer.startMs !== undefined) {
-                  startMs = parseInt(renderer.startMs, 10);
-                } else if (renderer.startTimeMs !== undefined) {
-                  startMs = parseInt(renderer.startTimeMs, 10);
-                } else if (renderer.startOffsetMs !== undefined) {
-                  startMs = parseInt(renderer.startOffsetMs, 10);
-                }
-                
-                // Log dos primeiros segmentos para debug
-                if (idx < 3) {
-                  console.log(`DEBUG: Segmento ${idx} - startMs: ${startMs}, renderer keys:`, Object.keys(renderer));
-                }
-                
-                const text = renderer.snippet?.runs?.map(r => r.text).join('') || '';
-                if (text.trim()) {
-                  segments.push({
-                    start: startMs / 1000,
-                    text: text.trim()
-                  });
-                }
-              }
-            });
-          }
-        }
-      }
-    }
-    
-    // Log para verificar timestamps extraídos
-    if (segments.length > 0) {
-      console.log("DEBUG: Primeiros 5 segmentos extraídos:", segments.slice(0, 5));
-      console.log("DEBUG: Últimos 3 segmentos extraídos:", segments.slice(-3));
-    }
-    
-    return segments.length > 0 ? segments : null;
-  } catch (error) {
-    console.error("DEBUG: Erro ao extrair segmentos:", error);
-    return null;
-  }
-}
-
-async function downloadTranscriptXMLFallbackWithTimestamps(selectedCaption) {
-  try {
-    if (!selectedCaption || !selectedCaption.link) return null;
-    
-    const xmlUrl = selectedCaption.link.includes('&fmt=xml') ? selectedCaption.link : `${selectedCaption.link}&fmt=xml`;
-    const response = await fetch(xmlUrl);
-    if (!response.ok) return null;
-    
-    const xmlContent = await response.text();
-    return parseTranscriptXMLToSegments(xmlContent);
-  } catch (error) {
-    return null;
-  }
-}
-
-function parseTranscriptXMLToSegments(xmlContent) {
-  try {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-    const textElements = xmlDoc.getElementsByTagName("text");
-    
-    const segments = [];
-    Array.from(textElements).forEach(element => {
-      const start = parseFloat(element.getAttribute("start") || "0");
-      const text = element.textContent?.trim();
+    if (segments && segments.length > 0) {
+      console.log(`[SmartCaptions] ${segments.length} segmentos obtidos com sucesso.`);
       
-      if (text) {
-        segments.push({
-          start: start,
-          text: text
-        });
-      }
-    });
+      // Adaptar formato se necessário, mas o retorno da lib já deve ser compatível ou fácil de adaptar
+      // A lib retorna: { text, duration, offset, lang }
+      // Nosso código espera: { text, start, duration, offset } (start parece ser offset em ms ou s? Checar uso.)
+      
+      // O código antigo fazia: offset: start * 1000. Start era segundos.
+      // A lib retorna offset em 'float' (segundos? ms?)
+      // Olhando o regex da lib: offset: parseFloat(result[1]) -> result[1] vem de start="..." no XML.
+      // O XML do youtube retorna start em SEGUNDOS (float).
+      // Então offset da lib = START em segundos.
+      
+      return segments.map(seg => ({
+        text: seg.text,
+        start: seg.offset, // A lib chama de 'offset' o que é o 'start' em segundos
+        duration: seg.duration,
+        offset: seg.offset * 1000 // Mantendo compatibilidade se algo usar 'offset' como ms
+      }));
+    }
     
-    return segments;
+    console.warn('[SmartCaptions] Nenhum segmento encontrado.');
+    return null;
+    
   } catch (error) {
+    console.error("[SmartCaptions] Erro ao obter transcrição:", error);
     return null;
   }
 }
+
+// Funções antigas removidas ou comentadas para limpeza
+// downloadTranscriptSegments, extractSegmentsFromApiResponse, downloadTranscriptXMLFallbackWithTimestamps, etc.
+
 
 // ----------------------------------------------------------------
 // 2. Sistema de Legendas Inteligentes (Smart Captions)

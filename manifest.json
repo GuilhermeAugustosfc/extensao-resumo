@@ -5,17 +5,14 @@
   "description": "Uma extensão para interagir com o YouTube",
   "permissions": [
     "activeTab",
-    "storage",
-    "webRequest",
-    "*://*.youtube.com/*",
-    "*://*.googlevideo.com/*",
-    "*://*.chatgpt.com/*"
+    "storage"
   ],
   "host_permissions": [
     "*://*.youtube.com/*",
     "*://*.googlevideo.com/*",
     "*://*.deepseek.com/*",
-    "*://*.chatgpt.com/*"
+    "*://*.chatgpt.com/*",
+    "*://*.google.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -27,8 +24,14 @@
   },
   "content_scripts": [
     {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["youtube-transcript-page.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
       "matches": ["*://*.youtube.com/*", "*://*.deepseek.com/*", "*://*.google.com/*", "*://*.chatgpt.com/*"],
-      "js": ["content.js"]
+      "js": ["youtube-transcript.js", "content.js"]
     }
   ],
   "icons": {
