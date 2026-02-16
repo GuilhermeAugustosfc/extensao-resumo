@@ -635,18 +635,8 @@ function processContainers(containers, thumbnailSelector) {
         e.preventDefault();
         e.stopPropagation();
         
-        
-        // Mostrar loading global ou algo enquanto pega transcrição
-        // Para simplicidade, vamos assumir que pegamos a transcrição primeiro
-        const transcription = await getVideoTranscription(videoId);
-        if (!transcription) {
-          alert("Não foi possível obter a transcrição deste vídeo.");
-          return;
-        }
-        window.currentTranscription = transcription;
-        
-        // Criar popup
-        createPromptPopup(aiSummaryButton, transcription);
+        // Mostrar popup de seleção de preset
+        showPresetSelector(videoId, 'gemini');
       });
 
       // Evento para o botão Resumo ChatGPT
@@ -654,62 +644,261 @@ function processContainers(containers, thumbnailSelector) {
         e.preventDefault();
         e.stopPropagation();
         
-        
-        // Mostrar loading
-        chatgptButton.innerHTML = `
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
-          </svg>
-          <span>Carregando...</span>
-        `;
-        chatgptButton.style.opacity = '0.7';
-        
-        try {
-          const transcription = await getVideoTranscription(videoId);
-          if (!transcription) {
-            alert("Não foi possível obter a transcrição deste vídeo.");
-            return;
-          }
-          
-          
-          // Verificar se chrome.storage está disponível antes de tentar usá-lo
-          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            
-            // Salvar transcrição no chrome.storage (funciona entre domínios)
-            const transcriptionData = {
-              text: transcription,
-              timestamp: Date.now(),
-              videoId: videoId
-            };
-            
-            chrome.storage.local.set({ 'youtubeTranscription': transcriptionData }, () => {
-              if (chrome.runtime.lastError) {
-              } else {
-              }
-            });
-          } else {
-            // Armazenar na variável global como fallback (igual ao resumo AI)
-            window.currentTranscription = transcription;
-          }
-          
-          // Redirecionar para o ChatGPT
-          window.open('https://chatgpt.com/?model=auto', '_blank');
-          
-        } catch (error) {
-          alert('Erro ao processar transcrição: ' + error.message);
-        } finally {
-          // Restaurar botão
-          chatgptButton.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 0-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
-            </svg>
-          `;
-          chatgptButton.style.opacity = '1';
-        }
+        // Mostrar popup de seleção de preset
+        showPresetSelector(videoId, 'chatgpt');
       });
     } catch (error) {
     }
   });
+}
+
+// Definição dos presets de prompt
+const PROMPT_PRESETS = {
+  detalhado: {
+    name: '📋 Detalhado',
+    description: 'Resumo completo e estruturado',
+    prompt: `Faça um resumo DETALHADO e COMPLETO do seguinte vídeo em português do Brasil.
+
+Organize o conteúdo seguindo esta estrutura:
+- Introdução: contexto geral do vídeo
+- Tópicos principais (5-10 pontos): desenvolva cada tema abordado
+- Conceitos-chave: explique termos e ideias importantes
+- Conclusão: principais takeaways
+
+Use markdown com títulos (##), subtítulos (###), negrito para destacar palavras-chave e bullet points para listas.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  direto: {
+    name: '⚡ Direto ao Ponto',
+    description: 'Resumo objetivo e conciso',
+    prompt: `Faça um resumo DIRETO e OBJETIVO do seguinte vídeo em português do Brasil.
+
+Formato:
+- Tema principal em 1 frase
+- 3-5 pontos-chave (máximo 2 linhas cada)
+- Conclusão em 1 frase
+
+Seja conciso e vá direto ao essencial. Use markdown simples.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  passoAPasso: {
+    name: '📝 Passo a Passo',
+    description: 'Tutorial sequencial',
+    prompt: `Transforme o conteúdo do seguinte vídeo em um GUIA PASSO A PASSO em português do Brasil.
+
+Estruture como um tutorial:
+1. Objetivo: o que será ensinado
+2. Pré-requisitos (se houver)
+3. Passos numerados: cada etapa explicada claramente
+4. Dicas importantes
+5. Resultado final esperado
+
+Use markdown com listas numeradas e destaque informações críticas em negrito.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  logica: {
+    name: '🧠 Lógica e Conceitos',
+    description: 'Explicação técnica aprofundada',
+    prompt: `Faça uma ANÁLISE TÉCNICA E CONCEITUAL do seguinte vídeo em português do Brasil.
+
+Foque em:
+- Conceitos fundamentais: explique a base teórica
+- Lógica e raciocínio: como as ideias se conectam
+- Detalhes técnicos: aspectos mais complexos
+- Relações causa-efeito
+- Implicações práticas
+
+Use linguagem técnica apropriada e markdown para organizar. Ideal para quem já tem conhecimento na área.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  simples: {
+    name: '👶 Linguagem Simples',
+    description: 'Para iniciantes e leigos',
+    prompt: `Explique o conteúdo do seguinte vídeo em LINGUAGEM SIMPLES E ACESSÍVEL, em português do Brasil.
+
+Como se estivesse explicando para alguém que NÃO conhece o assunto:
+- Use analogias e exemplos do dia a dia
+- Evite jargões técnicos (ou explique-os quando necessário)
+- Explique TODO o contexto necessário
+- Quebre conceitos complexos em partes simples
+- Use comparações familiares
+
+Objetivo: qualquer pessoa deve entender, independente do conhecimento prévio.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  topicos: {
+    name: '🎯 Tópicos Principais',
+    description: 'Lista dos pontos-chave',
+    prompt: `Liste os TÓPICOS PRINCIPAIS do seguinte vídeo em português do Brasil.
+
+Formato de lista organizada:
+- Identifique 5-8 tópicos centrais
+- Para cada tópico: título + descrição breve (2-3 linhas)
+- Ordene por importância ou sequência lógica
+- Adicione subtópicos quando relevante
+
+Use markdown com hierarquia clara (##, ###, bullet points).
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  critico: {
+    name: '🔍 Análise Crítica',
+    description: 'Avaliação e insights',
+    prompt: `Faça uma ANÁLISE CRÍTICA do seguinte vídeo em português do Brasil.
+
+Estruture sua análise:
+- Resumo do conteúdo (breve)
+- Pontos fortes: o que foi bem apresentado
+- Pontos fracos: lacunas ou aspectos questionáveis
+- Insights: observações e reflexões adicionais
+- Aplicabilidade: como usar esse conhecimento
+- Conclusão: avaliação geral
+
+Seja analítico e construtivo. Use markdown para organizar.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  estudo: {
+    name: '📚 Notas de Estudo',
+    description: 'Formato para revisão',
+    prompt: `Crie NOTAS DE ESTUDO do seguinte vídeo em português do Brasil.
+
+Formato de material de revisão:
+- Título e tema principal
+- Conceitos-chave: definições claras
+- Fatos importantes: dados, números, nomes
+- Fórmulas/processos (se aplicável)
+- Exemplos práticos
+- Perguntas para revisão (3-5)
+- Resumo em bullet points
+
+Use markdown com formatação clara para facilitar revisão rápida.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  }
+};
+
+// Função para mostrar o seletor de presets
+function showPresetSelector(videoId, platform) {
+  // Remover seletor existente se houver
+  const existingSelector = document.querySelector('.youtube-preset-selector');
+  if (existingSelector) existingSelector.remove();
+  
+  const selector = document.createElement('div');
+  selector.className = 'youtube-preset-selector';
+  
+  // Criar HTML do seletor
+  let presetsHTML = '';
+  for (const [key, preset] of Object.entries(PROMPT_PRESETS)) {
+    presetsHTML += `
+      <div class="preset-option" data-preset="${key}">
+        <div class="preset-name">${preset.name}</div>
+        <div class="preset-description">${preset.description}</div>
+      </div>
+    `;
+  }
+  
+  selector.innerHTML = `
+    <div class="preset-overlay"></div>
+    <div class="preset-modal">
+      <div class="preset-header">
+        <h3>Escolha o tipo de resumo</h3>
+        <button class="preset-close">×</button>
+      </div>
+      <div class="preset-options">
+        ${presetsHTML}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(selector);
+  
+  // Eventos
+  const closeBtn = selector.querySelector('.preset-close');
+  const overlay = selector.querySelector('.preset-overlay');
+  
+  closeBtn.addEventListener('click', () => selector.remove());
+  overlay.addEventListener('click', () => selector.remove());
+  
+  // Evento para cada preset
+  const options = selector.querySelectorAll('.preset-option');
+  options.forEach(option => {
+    option.addEventListener('click', async () => {
+      const presetKey = option.getAttribute('data-preset');
+      selector.remove();
+      await processWithPreset(videoId, presetKey, platform);
+    });
+  });
+}
+
+// Função para processar com o preset selecionado
+async function processWithPreset(videoId, presetKey, platform) {
+  const preset = PROMPT_PRESETS[presetKey];
+  
+  // Mostrar loading
+  console.log(`Processando com preset: ${preset.name}`);
+  
+  try {
+    const transcription = await getVideoTranscription(videoId);
+    if (!transcription) {
+      alert("Não foi possível obter a transcrição deste vídeo.");
+      return;
+    }
+    
+    // Substituir placeholder pela transcrição
+    const fullPrompt = preset.prompt.replace('[TRANSCRIPTION]', transcription);
+    
+    // Salvar no chrome.storage
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const transcriptionData = {
+        text: fullPrompt,
+        timestamp: Date.now(),
+        videoId: videoId,
+        preset: presetKey
+      };
+      
+      chrome.storage.local.set({ 'youtubeTranscription': transcriptionData }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Erro ao salvar transcrição:', chrome.runtime.lastError);
+        } else {
+          console.log('Transcrição salva com sucesso');
+        }
+      });
+    } else {
+      window.currentTranscription = fullPrompt;
+    }
+    
+    // Redirecionar para a plataforma escolhida
+    if (platform === 'gemini') {
+      window.open('https://gemini.google.com/app', '_blank');
+    } else if (platform === 'chatgpt') {
+      window.open('https://chatgpt.com/?model=auto', '_blank');
+    }
+    
+  } catch (error) {
+    alert('Erro ao processar transcrição: ' + error.message);
+  }
 }
 
 // Nova função para criar o popup de prompt
@@ -1175,6 +1364,143 @@ try {
     .youtube-summary-prompt-send:hover {
       background-color: #0056b3;
     }
+
+    /* Estilos para o seletor de presets */
+    .youtube-preset-selector {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preset-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+    }
+
+    .preset-modal {
+      position: relative;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow: hidden;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .preset-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid #3a3a3a;
+    }
+
+    .preset-header h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .preset-close {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 28px;
+      cursor: pointer;
+      transition: color 0.2s;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preset-close:hover {
+      color: white;
+    }
+
+    .preset-options {
+      padding: 16px;
+      max-height: calc(80vh - 80px);
+      overflow-y: auto;
+    }
+
+    .preset-option {
+      background: #2a2a2a;
+      border: 2px solid #3a3a3a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .preset-option:hover {
+      background: #333;
+      border-color: #065fd4;
+      transform: translateX(4px);
+    }
+
+    .preset-option:active {
+      transform: translateX(2px);
+    }
+
+    .preset-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 4px;
+    }
+
+    .preset-description {
+      font-size: 13px;
+      color: #aaa;
+    }
+
+    /* Scrollbar customizada para o modal */
+    .preset-options::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .preset-options::-webkit-scrollbar-track {
+      background: #1a1a1a;
+      border-radius: 4px;
+    }
+
+    .preset-options::-webkit-scrollbar-thumb {
+      background: #3a3a3a;
+      border-radius: 4px;
+    }
+
+    .preset-options::-webkit-scrollbar-thumb:hover {
+      background: #4a4a4a;
+    }
   `;
   document.head.appendChild(styles);
 } catch (error) {
@@ -1328,26 +1654,9 @@ Por favor, estruture o resumo de forma clara e organizada.`;
       }
       
       
-      // Aguardar um pouco e pressionar Enter
-      setTimeout(() => {
-        
-        // Simular pressionar Enter
-        const enterEvent = new KeyboardEvent('keydown', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-          cancelable: true
-        });
-        
-        textArea.dispatchEvent(enterEvent);
-        
-        // Limpar a transcrição do chrome.storage após usar
-        chrome.storage.local.remove(['youtubeTranscription'], () => {
-        });
-        
-      }, 500);
+      // Limpar a transcrição do chrome.storage imediatamente após preencher
+      chrome.storage.local.remove(['youtubeTranscription'], () => {
+      });
     }
     
     

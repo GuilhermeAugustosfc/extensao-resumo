@@ -32,6 +32,11 @@
     {
       "matches": ["*://*.youtube.com/*", "*://*.deepseek.com/*", "*://*.google.com/*", "*://*.chatgpt.com/*"],
       "js": ["youtube-transcript.js", "content.js"]
+    },
+    {
+      "matches": ["*://gemini.google.com/*"],
+      "js": ["gemini-inject.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {
