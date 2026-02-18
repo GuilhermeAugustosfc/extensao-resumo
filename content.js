@@ -1501,12 +1501,434 @@ try {
     .preset-options::-webkit-scrollbar-thumb:hover {
       background: #4a4a4a;
     }
+
+    /* ===== BOTÃO FLUTUANTE DE PROMPT PERSONALIZADO ===== */
+    #yt-custom-prompt-fab {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #065fd4 0%, #4285f4 100%);
+      color: white;
+      border: none;
+      cursor: pointer;
+      z-index: 2147483647;
+      box-shadow: 0 4px 16px rgba(6, 95, 212, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    #yt-custom-prompt-fab:hover {
+      transform: scale(1.1) translateY(-2px);
+      box-shadow: 0 8px 24px rgba(6, 95, 212, 0.6);
+    }
+
+    #yt-custom-prompt-fab:active {
+      transform: scale(0.95);
+    }
+
+    /* Popup do prompt personalizado */
+    #yt-custom-prompt-popup {
+      position: fixed;
+      bottom: 96px;
+      right: 28px;
+      width: 380px;
+      max-width: calc(100vw - 56px);
+      background: linear-gradient(160deg, #1e1e2e 0%, #2a2a3e 100%);
+      border: 1px solid rgba(66, 133, 244, 0.3);
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.05);
+      z-index: 2147483646;
+      overflow: hidden;
+      animation: fabPopupIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform-origin: bottom right;
+    }
+
+    @keyframes fabPopupIn {
+      from { opacity: 0; transform: scale(0.85) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    #yt-custom-prompt-popup.closing {
+      animation: fabPopupOut 0.18s ease forwards;
+    }
+
+    @keyframes fabPopupOut {
+      from { opacity: 1; transform: scale(1) translateY(0); }
+      to   { opacity: 0; transform: scale(0.85) translateY(12px); }
+    }
+
+    .yt-cp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .yt-cp-header h4 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: #e8eaed;
+      letter-spacing: 0.2px;
+    }
+
+    .yt-cp-close {
+      background: none;
+      border: none;
+      color: #9aa0a6;
+      font-size: 20px;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.15s, color 0.15s;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .yt-cp-close:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+
+    .yt-cp-body {
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .yt-cp-textarea {
+      width: 100%;
+      min-height: 140px;
+      max-height: 40vh;
+      padding: 12px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: #e8eaed;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 13.5px;
+      line-height: 1.6;
+      resize: vertical;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .yt-cp-textarea::placeholder {
+      color: #5f6368;
+    }
+
+    .yt-cp-textarea:focus {
+      border-color: rgba(66, 133, 244, 0.6);
+      background: rgba(0,0,0,0.4);
+    }
+
+    .yt-cp-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .yt-cp-select {
+      flex: 1;
+      padding: 9px 12px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #e8eaed;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa0a6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+
+    .yt-cp-select:focus {
+      border-color: rgba(66, 133, 244, 0.6);
+    }
+
+    .yt-cp-select option {
+      background: #2a2a3e;
+      color: #e8eaed;
+    }
+
+    .yt-cp-send {
+      padding: 9px 20px;
+      background: linear-gradient(135deg, #065fd4 0%, #4285f4 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.15s;
+      letter-spacing: 0.2px;
+    }
+
+    .yt-cp-send:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .yt-cp-send:active {
+      transform: translateY(0);
+    }
+
+    .yt-cp-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Animação de rotação da esfera do FAB */
+    @keyframes yt-fab-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    #yt-custom-prompt-fab .yt-fab-sphere {
+      animation: yt-fab-spin 3s linear infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #yt-custom-prompt-fab:hover .yt-fab-sphere {
+      animation-duration: 1.2s;
+    }
   `;
   document.head.appendChild(styles);
 } catch (error) {
 }
 
 // Executar a função addSummaryIcons mais vezes para garantir que os elementos sejam capturados
+
+// ===== BOTÃO FLUTUANTE DE PROMPT PERSONALIZADO =====
+
+/**
+ * Cria e injeta o botão flutuante (FAB) de prompt personalizado.
+ * Só é criado em páginas do YouTube.
+ */
+function createCustomPromptFAB() {
+  if (!isYouTubePage()) return;
+  if (document.getElementById('yt-custom-prompt-fab')) return;
+
+  const fab = document.createElement('button');
+  fab.id = 'yt-custom-prompt-fab';
+  fab.title = 'Enviar prompt personalizado para IA';
+  fab.setAttribute('aria-label', 'Abrir prompt personalizado');
+  fab.innerHTML = `
+    <span class="yt-fab-sphere">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Esfera base -->
+        <circle cx="14" cy="14" r="12" fill="url(#sphereGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
+        <!-- Meridianos verticais -->
+        <ellipse cx="14" cy="14" rx="5" ry="12" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+        <ellipse cx="14" cy="14" rx="10" ry="12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
+        <!-- Paralelos horizontais -->
+        <ellipse cx="14" cy="14" rx="12" ry="4" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>
+        <ellipse cx="14" cy="9" rx="10" ry="2.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
+        <ellipse cx="14" cy="19" rx="10" ry="2.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
+        <!-- Brilho -->
+        <ellipse cx="10" cy="9" rx="3" ry="2" fill="rgba(255,255,255,0.25)" transform="rotate(-20 10 9)"/>
+        <!-- Gradiente -->
+        <defs>
+          <radialGradient id="sphereGrad" cx="35%" cy="30%" r="65%">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.4)"/>
+            <stop offset="40%" stop-color="rgba(66,133,244,0.6)"/>
+            <stop offset="100%" stop-color="rgba(4,40,120,0.9)"/>
+          </radialGradient>
+        </defs>
+      </svg>
+    </span>
+  `;
+
+  fab.addEventListener('click', () => {
+    const existing = document.getElementById('yt-custom-prompt-popup');
+    if (existing) {
+      closeCustomPromptPopup();
+    } else {
+      openCustomPromptPopup();
+    }
+  });
+
+  document.body.appendChild(fab);
+}
+
+/**
+ * Abre o popup de prompt personalizado.
+ */
+function openCustomPromptPopup() {
+  // Fechar se já existir
+  const existing = document.getElementById('yt-custom-prompt-popup');
+  if (existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'yt-custom-prompt-popup';
+
+  popup.innerHTML = `
+    <div class="yt-cp-header">
+      <h4>✨ Prompt Personalizado</h4>
+      <button class="yt-cp-close" id="yt-cp-close-btn" aria-label="Fechar">×</button>
+    </div>
+    <div class="yt-cp-body">
+      <textarea
+        id="yt-cp-textarea"
+        class="yt-cp-textarea"
+        placeholder="Digite seu prompt aqui...&#10;&#10;Exemplo: Explique os conceitos principais deste vídeo de forma simples."
+        maxlength="2147483647"
+      ></textarea>
+      <div class="yt-cp-footer">
+        <select id="yt-cp-platform-select" class="yt-cp-select">
+          <option value="gemini" selected>🔵 Gemini</option>
+          <option value="chatgpt">🟢 ChatGPT</option>
+        </select>
+        <button id="yt-cp-send-btn" class="yt-cp-send">Enviar →</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+
+  // Focar no textarea
+  const textarea = document.getElementById('yt-cp-textarea');
+  setTimeout(() => textarea && textarea.focus(), 50);
+
+  // Fechar ao clicar no X
+  document.getElementById('yt-cp-close-btn').addEventListener('click', closeCustomPromptPopup);
+
+  // Enviar
+  document.getElementById('yt-cp-send-btn').addEventListener('click', handleCustomPromptSend);
+
+  // Ctrl+Enter para enviar
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      handleCustomPromptSend();
+    }
+  });
+
+  // Fechar ao clicar fora do popup e do FAB
+  setTimeout(() => {
+    document.addEventListener('click', outsideClickHandler);
+  }, 100);
+}
+
+function outsideClickHandler(e) {
+  const popup = document.getElementById('yt-custom-prompt-popup');
+  const fab = document.getElementById('yt-custom-prompt-fab');
+  if (popup && !popup.contains(e.target) && fab && !fab.contains(e.target)) {
+    closeCustomPromptPopup();
+  }
+}
+
+/**
+ * Fecha o popup com animação.
+ */
+function closeCustomPromptPopup() {
+  document.removeEventListener('click', outsideClickHandler);
+  const popup = document.getElementById('yt-custom-prompt-popup');
+  if (!popup) return;
+  popup.classList.add('closing');
+  setTimeout(() => popup.remove(), 180);
+}
+
+/**
+ * Processa o envio do prompt personalizado:
+ * salva no chrome.storage e redireciona para Gemini ou ChatGPT,
+ * exatamente como o fluxo dos presets existentes.
+ */
+async function handleCustomPromptSend() {
+  const textarea = document.getElementById('yt-cp-textarea');
+  const select = document.getElementById('yt-cp-platform-select');
+  const sendBtn = document.getElementById('yt-cp-send-btn');
+
+  if (!textarea || !select) return;
+
+  const userPrompt = textarea.value.trim();
+  if (!userPrompt) {
+    textarea.focus();
+    textarea.style.borderColor = 'rgba(234, 67, 53, 0.7)';
+    setTimeout(() => { textarea.style.borderColor = ''; }, 1500);
+    return;
+  }
+
+  const platform = select.value; // 'gemini' ou 'chatgpt'
+
+  // Desabilitar botão enquanto processa
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Salvando...';
+  }
+
+  // Montar o dado no mesmo formato que processWithPreset usa
+  const transcriptionData = {
+    text: userPrompt,
+    timestamp: Date.now(),
+    videoId: null,
+    preset: 'custom'
+  };
+
+  // Salvar no chrome.storage (mesmo mecanismo dos presets)
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.set({ 'youtubeTranscription': transcriptionData }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('[CustomPrompt] Erro ao salvar:', chrome.runtime.lastError);
+        if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Enviar →'; }
+        return;
+      }
+      closeCustomPromptPopup();
+      // Redirecionar para a plataforma escolhida
+      if (platform === 'gemini') {
+        window.open('https://gemini.google.com/app', '_blank');
+      } else if (platform === 'chatgpt') {
+        window.open('https://chatgpt.com/?model=auto', '_blank');
+      }
+    });
+  } else {
+    // Fallback sem chrome.storage
+    window.currentTranscription = userPrompt;
+    closeCustomPromptPopup();
+    if (platform === 'gemini') {
+      window.open('https://gemini.google.com/app', '_blank');
+    } else if (platform === 'chatgpt') {
+      window.open('https://chatgpt.com/?model=auto', '_blank');
+    }
+  }
+}
+
+// Inicializar o FAB na página do YouTube
+if (isYouTubePage()) {
+  // Criar imediatamente se o body já existir
+  if (document.body) {
+    createCustomPromptFAB();
+  } else {
+    document.addEventListener('DOMContentLoaded', createCustomPromptFAB);
+  }
+  // Garantir que o FAB persiste em navegações SPA do YouTube
+  document.addEventListener('yt-navigate-finish', () => {
+    setTimeout(createCustomPromptFAB, 500);
+  });
+}
 
 // Verificar se estamos no ChatGPT e processar integração
 if (window.location.hostname.includes('chatgpt.com')) {
