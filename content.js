@@ -671,6 +671,13 @@ Transcrição do vídeo:
 
 [TRANSCRIPTION]`
   },
+  resumePraMim: {
+    name: '💬 Resume pra mim',
+    description: 'Resumo rápido e direto',
+    prompt: `Resume pra mim dando o maximo de contexto possivel
+
+[TRANSCRIPTION]`
+  },
   direto: {
     name: '⚡ Direto ao Ponto',
     description: 'Resumo objetivo e conciso',
