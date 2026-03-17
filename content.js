@@ -13,6 +13,60 @@ function isYouTubePage() {
   return window.location.hostname.includes("youtube.com");
 }
 
+// Função para mostrar feedback (Toast)
+function showToast(message, duration = 3000) {
+  const toast = document.createElement('div');
+  toast.className = 'youtube-summary-toast';
+  toast.innerText = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 10);
+  
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// Função para carregar estilos adicionais (Toast e Feedback)
+function addStyles() {
+  if (document.getElementById('youtube-summary-extra-styles')) return;
+  
+  const style = document.createElement('style');
+  style.id = 'youtube-summary-extra-styles';
+  style.innerHTML = `
+    .youtube-summary-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 25px;
+      z-index: 99999;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      opacity: 0;
+      font-size: 14px;
+      font-family: Roboto, Arial, sans-serif;
+    }
+    .youtube-summary-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    .long-press-feedback {
+      transition: background-color 0.3s ease;
+      background-color: rgba(255, 255, 255, 0.2) !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+addStyles();
+
+// Removidas funções setupLongPress e addLongPressToPlayer
+
 // Função para verificar se existem thumbnails
 function checkThumbnails() {
   const thumbnails = document.querySelectorAll("a#thumbnail");
@@ -297,7 +351,7 @@ function closeSideMenu() {
 async function handleNewPrompt(userPrompt) {
   const currentTranscription = window.currentTranscription;
   if (!currentTranscription) {
-    alert('Nenhuma transcrição disponível. Clique em um vídeo primeiro.');
+    showToast('⚠️ Nenhuma transcrição disponível.');
     return;
   }
   
@@ -487,7 +541,7 @@ function handleIconClick(thumbnail, index, isSecondIcon = false) {
           showError('Erro ao processar transcrição: ' + error.message);
         }
       } else {
-        alert("Não foi possível obter a transcrição deste vídeo.");
+        showToast("❌ Não foi possível obter a transcrição.");
       }
     }
   };
@@ -499,9 +553,6 @@ function addSummaryIcons() {
     return;
   }
 
-  // Processo para adicionar ícones às thumbnails
-  processVideoThumbnails();
-
   // Processo para adicionar botões ao contêiner do vídeo
   processVideoContainers();
 
@@ -509,35 +560,7 @@ function addSummaryIcons() {
   setTimeout(processVideoContainers, 1500);
 }
 
-// Função para processar thumbnails e adicionar ícones
-function processVideoThumbnails() {
-  const thumbnails = document.querySelectorAll(
-    "a#thumbnail:not(.summary-icons-added)"
-  );
 
-  thumbnails.forEach((thumbnail, index) => {
-    try {
-      // Ícone superior esquerdo (Google AI Studio)
-      const iconContainerTop = document.createElement("div");
-      iconContainerTop.className = "summary-icon-container top";
-      iconContainerTop.innerHTML = `
-        <svg class="summary-icon" width="24" height="24" viewBox="0 0 24 24" fill="white">
-          <path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/>
-        </svg>
-      `;
-
-      thumbnail.appendChild(iconContainerTop);
-      thumbnail.classList.add("summary-icons-added");
-
-      // Evento para o ícone do Google AI Studio
-      iconContainerTop.addEventListener(
-        "click",
-        handleIconClick(thumbnail, index, true)
-      );
-    } catch (error) {
-    }
-  });
-}
 
 // Função para processar contêineres de vídeo e adicionar botões Resumo AI
 function processVideoContainers() {
@@ -652,12 +675,14 @@ function processContainers(containers, thumbnailSelector) {
   });
 }
 
+// (Função processSpecificContentContainers removida)
+
 // Definição dos presets de prompt
 const PROMPT_PRESETS = {
   detalhado: {
     name: '📋 Detalhado',
     description: 'Resumo completo e estruturado',
-    prompt: `Faça um resumo DETALHADO e COMPLETO do seguinte vídeo em português do Brasil.
+    prompt: `Faça um resumo DETALHADO e COMPLETO com linguagem simples do seguinte vídeo em português do Brasil.
 
 Organize o conteúdo seguindo esta estrutura:
 - Introdução: contexto geral do vídeo
@@ -674,14 +699,14 @@ Transcrição do vídeo:
   resumePraMim: {
     name: '💬 Resume pra mim',
     description: 'Resumo rápido e direto',
-    prompt: `Resume pra mim dando o maximo de contexto possivel
+    prompt: `Resume pra mim dando o maximo de contexto possivel com linguagem simples do seguinte vídeo em português do Brasil.
 
 [TRANSCRIPTION]`
   },
   direto: {
     name: '⚡ Direto ao Ponto',
     description: 'Resumo objetivo e conciso',
-    prompt: `Faça um resumo DIRETO e OBJETIVO do seguinte vídeo em português do Brasil.
+    prompt: `Faça um resumo DIRETO e OBJETIVO com linguagem simples do seguinte vídeo em português do Brasil.
 
 Formato:
 - Tema principal em 1 frase
@@ -697,7 +722,7 @@ Transcrição do vídeo:
   passoAPasso: {
     name: '📝 Passo a Passo',
     description: 'Tutorial sequencial',
-    prompt: `Transforme o conteúdo do seguinte vídeo em um GUIA PASSO A PASSO em português do Brasil.
+    prompt: `Transforme o conteúdo do seguinte vídeo em um GUIA PASSO A PASSO com linguagem simples em português do Brasil.
 
 Estruture como um tutorial:
 1. Objetivo: o que será ensinado
@@ -715,7 +740,7 @@ Transcrição do vídeo:
   logica: {
     name: '🧠 Lógica e Conceitos',
     description: 'Explicação técnica aprofundada',
-    prompt: `Faça uma ANÁLISE TÉCNICA E CONCEITUAL do seguinte vídeo em português do Brasil.
+    prompt: `Faça uma ANÁLISE TÉCNICA E CONCEITUAL com linguagem simples do seguinte vídeo em português do Brasil.
 
 Foque em:
 - Conceitos fundamentais: explique a base teórica
@@ -751,7 +776,7 @@ Transcrição do vídeo:
   topicos: {
     name: '🎯 Tópicos Principais',
     description: 'Lista dos pontos-chave',
-    prompt: `Liste os TÓPICOS PRINCIPAIS do seguinte vídeo em português do Brasil.
+    prompt: `Liste os TÓPICOS PRINCIPAIS com linguagem simples do seguinte vídeo em português do Brasil.
 
 Formato de lista organizada:
 - Identifique 5-8 tópicos centrais
@@ -768,7 +793,7 @@ Transcrição do vídeo:
   critico: {
     name: '🔍 Análise Crítica',
     description: 'Avaliação e insights',
-    prompt: `Faça uma ANÁLISE CRÍTICA do seguinte vídeo em português do Brasil.
+    prompt: `Faça uma ANÁLISE CRÍTICA com linguagem simples do seguinte vídeo em português do Brasil.
 
 Estruture sua análise:
 - Resumo do conteúdo (breve)
@@ -787,7 +812,7 @@ Transcrição do vídeo:
   estudo: {
     name: '📚 Notas de Estudo',
     description: 'Formato para revisão',
-    prompt: `Crie NOTAS DE ESTUDO do seguinte vídeo em português do Brasil.
+    prompt: `Crie NOTAS DE ESTUDO com linguagem simples do seguinte vídeo em português do Brasil.
 
 Formato de material de revisão:
 - Título e tema principal
@@ -869,7 +894,7 @@ async function processWithPreset(videoId, presetKey, platform) {
   try {
     const transcription = await getVideoTranscription(videoId);
     if (!transcription) {
-      alert("Não foi possível obter a transcrição deste vídeo.");
+      showToast("❌ Não foi possível obter a transcrição.");
       return;
     }
     
@@ -904,7 +929,7 @@ async function processWithPreset(videoId, presetKey, platform) {
     }
     
   } catch (error) {
-    alert('Erro ao processar transcrição: ' + error.message);
+    showToast('❌ Erro: ' + error.message);
   }
 }
 
@@ -974,31 +999,7 @@ try {
       position: relative;
     }
 
-    .summary-icon-container {
-      position: absolute;
-      background-color: rgba(0, 0, 0, 0.7);
-      border-radius: 4px;
-      padding: 4px;
-      cursor: pointer;
-      z-index: 10;
-      transition: transform 0.2s;
-    }
 
-    .summary-icon-container.top {
-      top: 8px;
-      left: 8px;
-    }
-
-    .summary-icon-container:hover {
-      transform: scale(1.1);
-      background-color: rgba(0, 0, 0, 0.9);
-    }
-
-    .summary-icon {
-      display: block;
-      width: 20px;
-      height: 20px;
-    }
 
     /* Estilos para o botão no contêiner do vídeo */
     ytd-rich-item-renderer, ytd-compact-video-renderer, ytd-video-renderer, .yt-lockup-view-model-wiz {
@@ -1712,15 +1713,139 @@ try {
       to   { transform: rotate(360deg); }
     }
 
-    #yt-custom-prompt-fab .yt-fab-sphere {
-      animation: yt-fab-spin 3s linear infinite;
+    /* Painel do Gemini Integrado */
+    .smart-captions-gemini-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 550px;
+      height: 85vh;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 16px;
+      z-index: 2147483647;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.8);
+      overflow: hidden;
+      animation: panelSlideIn 0.3s ease-out;
     }
 
-    #yt-custom-prompt-fab:hover .yt-fab-sphere {
-      animation-duration: 1.2s;
+    @keyframes panelSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .smart-captions-gemini-header {
+      padding: 14px 18px;
+      background: #2a2a2a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #4285f4;
+    }
+
+    .smart-captions-gemini-header h3 {
+      margin: 0;
+      font-size: 15px;
+      color: #fff;
+    }
+
+    .smart-captions-iframe {
+      flex: 1;
+      border: none;
+      background: #fff;
+    }
+
+    .smart-captions-gemini-footer {
+      padding: 15px;
+      background: #1e1e1e;
+      border-top: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .smart-captions-minimize {
+      cursor: pointer;
+      color: #aaa;
+      font-size: 20px;
+      background: none;
+      border: none;
+      padding: 5px;
+    }
+
+    .smart-captions-gemini-resize-handle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 10px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 1001;
+      background: transparent;
+      transition: background 0.2s;
+    }
+
+    .smart-captions-gemini-resize-handle:hover {
+      background: rgba(66, 133, 244, 0.2);
+    }
+
+    .smart-captions-gemini-panel.resizing {
+      user-select: none;
+      pointer-events: none; /* Evita que o iframe capture eventos durante o resize */
+    }
+
+    .smart-captions-gemini-panel.resizing .smart-captions-iframe {
+      pointer-events: none;
+    }
+
+    .smart-captions-gemini-panel.minimized {
+      height: 48px !important;
+      width: 250px !important;
+      overflow: hidden;
+    }
+
+    .smart-captions-gemini-panel.minimized .smart-captions-iframe,
+    .smart-captions-gemini-panel.minimized .smart-captions-gemini-resize-handle,
+    .smart-captions-gemini-panel.minimized .smart-captions-paste-overlay {
+      display: none;
+    }
+
+    .smart-captions-paste-overlay {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      background: #252525;
+      border: 1px solid #444;
+      border-radius: 12px;
+      padding: 12px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1002;
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+    }
+
+    .smart-captions-paste-overlay.active {
+      display: flex;
+    }
+
+    .smart-captions-header-btn {
+      background: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+
+    .smart-captions-header-btn:hover {
+      background: #3367d6;
     }
   `;
   document.head.appendChild(styles);
@@ -1770,11 +1895,8 @@ function createCustomPromptFAB() {
   `;
 
   fab.addEventListener('click', () => {
-    const existing = document.getElementById('yt-custom-prompt-popup');
-    if (existing) {
-      closeCustomPromptPopup();
-    } else {
-      openCustomPromptPopup();
+    if (typeof smartSubtitleSystem !== 'undefined') {
+      smartSubtitleSystem.openGeminiIframePanel(null);
     }
   });
 
@@ -1906,17 +2028,29 @@ async function handleCustomPromptSend() {
       closeCustomPromptPopup();
       // Redirecionar para a plataforma escolhida
       if (platform === 'gemini') {
-        window.open('https://gemini.google.com/app', '_blank');
+        // Fluxo Integrado via Iframe
+        if (typeof smartSubtitleSystem !== 'undefined') {
+          smartSubtitleSystem.copyToClipboard(userPrompt);
+          smartSubtitleSystem.openGeminiIframePanel(null); // null pois não é vinculado a um vídeo específico para cache de legenda
+          smartSubtitleSystem.updateOverlayStatus("Prompt copiado! Cole no Gemini abaixo.", true);
+        } else {
+          // Fallback se o sistema de legendas não estiver disponível por algum motivo
+          window.open('https://gemini.google.com/app', '_blank');
+        }
       } else if (platform === 'chatgpt') {
         window.open('https://chatgpt.com/?model=auto', '_blank');
       }
     });
   } else {
     // Fallback sem chrome.storage
-    window.currentTranscription = userPrompt;
     closeCustomPromptPopup();
     if (platform === 'gemini') {
-      window.open('https://gemini.google.com/app', '_blank');
+      if (typeof smartSubtitleSystem !== 'undefined') {
+        smartSubtitleSystem.copyToClipboard(userPrompt);
+        smartSubtitleSystem.openGeminiIframePanel(null);
+      } else {
+        window.open('https://gemini.google.com/app', '_blank');
+      }
     } else if (platform === 'chatgpt') {
       window.open('https://chatgpt.com/?model=auto', '_blank');
     }
@@ -2323,12 +2457,18 @@ class SmartSubtitleSystem {
     this.active = false;
     if (this.checkInterval) clearInterval(this.checkInterval);
     this.removeOverlay();
+    this.removeGeminiPanel();
     this.transcriptionSegments = null;
     this.rewrittenSubtitles = null;
     if (this.toggleButton) this.toggleButton.classList.remove('active');
   }
 
-  // Monta o prompt e chama o Gemini
+  removeGeminiPanel() {
+    const el = document.getElementById('smart-captions-gemini-panel');
+    if (el) el.remove();
+  }
+
+  // Monta o prompt e abre o painel com iframe do Gemini
   async processWithGemini(segments, videoId) {
     // Criar um mapa dos timestamps originais em segundos para uso posterior (ARRAY)
     this.originalTimestampsMap = segments.map(seg => ({
@@ -2336,17 +2476,11 @@ class SmartSubtitleSystem {
       originalText: seg.text
     }));
 
-    console.log("DEBUG: Timestamps originais (primeiros 5):", this.originalTimestampsMap.slice(0, 5));
-    console.log("DEBUG: Timestamps originais (últimos 3):", this.originalTimestampsMap.slice(-3));
-
     // Formatar transcrição com índices para garantir correspondência exata
     let formattedTranscription = "";
     segments.forEach((seg, index) => {
       formattedTranscription += `[${index}] ${seg.text}\n`;
     });
-
-    console.log("DEBUG: Transcrição enviada para o Gemini (início):", formattedTranscription.substring(0, 500) + "...");
-    console.log("DEBUG: Total de segmentos originais:", segments.length);
 
     const prompt = `
 Você é um especialista em legendagem.
@@ -2370,24 +2504,196 @@ Sua tarefa é APENAS reescrever os textos abaixo para ficarem mais fluídos e na
 ${formattedTranscription}
 `;
 
+    // Salvar no storage para o gemini-inject.js ler
+    const transcriptionData = {
+      text: prompt,
+      timestamp: Date.now(),
+      videoId: videoId,
+      preset: 'smart-captions'
+    };
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ 'youtubeTranscription': transcriptionData }, () => {
+        console.log('[SmartCaptions] Prompt salvo no storage. Abrindo painel Gemini...');
+        
+        // Tentar copiar para o clipboard para facilitar a vida do usuário dentro do iframe
+        this.copyToClipboard(prompt);
+        
+        this.openGeminiIframePanel(videoId);
+      });
+    } else {
+      this.copyToClipboard(prompt);
+      this.openGeminiIframePanel(videoId);
+    }
+    
+    this.updateOverlayStatus("Prompt copiado! Cole no Gemini abaixo.", true);
+  }
+
+  // Método auxiliar para copiar texto para o clipboard
+  async copyToClipboard(text) {
     try {
-      const responseText = await callGeminiAPI(prompt);
-      
-      console.log("DEBUG: Resposta bruta do Gemini:", responseText);
+      await navigator.clipboard.writeText(text);
+      console.log("[SmartCaptions] Prompt copiado para o clipboard com sucesso!");
+    } catch (err) {
+      console.error("[SmartCaptions] Erro ao copiar para o clipboard:", err);
+      // Fallback usando um textarea invisível se o navigator.clipboard falhar
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (copyErr) {
+        console.error("[SmartCaptions] Fallback de cópia também falhou.");
+      }
+      document.body.removeChild(textArea);
+    }
+  }
 
-      // Limpar markdown ```json ... ``` se houver
-      let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      const rewrittenByIndex = JSON.parse(cleanJson);
-      
-      console.log("DEBUG: JSON parseado com sucesso. Total de legendas reescritas:", Object.keys(rewrittenByIndex).length);
+  // Novo método para abrir o painel com iframe do Gemini
+  openGeminiIframePanel(videoId) {
+    // Remover se já existir
+    this.removeGeminiPanel();
 
-      // Reconstruir legendas como ARRAY com os timestamps ORIGINAIS em segundos
+    const panel = document.createElement('div');
+    panel.id = 'smart-captions-gemini-panel';
+    panel.className = 'smart-captions-gemini-panel';
+    
+    panel.innerHTML = `
+      <div class="smart-captions-gemini-header">
+        <h3 style="margin:0; font-family:sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">✨ Gemini Assistente</h3>
+        ${videoId ? `<button id="toggle-paste-overlay" class="smart-captions-header-btn">Finalizar Legendas</button>` : ''}
+        <div style="display: flex; gap: 5px;">
+          <button id="minimize-gemini-panel" class="smart-captions-minimize" title="Minimizar/Maximizar" style="font-size: 16px; padding: 0 5px;">_</button>
+          <button id="close-gemini-panel" class="smart-captions-minimize" title="Fechar">×</button>
+        </div>
+      </div>
+      <iframe src="https://gemini.google.com/app" class="smart-captions-iframe" id="gemini-iframe"></iframe>
+      
+      <div class="smart-captions-paste-overlay" id="smart-captions-paste-overlay">
+        <p style="margin:0; color:#ccc; font-size:11px; line-height:1.3;">
+          Cole o <b>JSON</b> do Gemini abaixo:
+        </p>
+        <textarea id="paste-json-area" placeholder='{"0": "...", "1": "..."}' style="width:100%; height:60px; background:#111; border:1px solid #444; border-radius:8px; color:#fff; padding:6px; font-family:monospace; font-size:10px; resize:none; outline:none; box-sizing:border-box;"></textarea>
+        <button id="process-pasted-json" style="width:100%; padding:8px; background:#4285f4; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">Aplicar Legendas</button>
+      </div>
+
+      <div class="smart-captions-gemini-resize-handle" id="gemini-panel-resize-handle"></div>
+    `;
+
+    // Adicionar ao container principal para evitar que outras extensões fiquem por cima
+    const container = document.querySelector('#content.ytd-app') || document.querySelector('ytd-app') || document.body;
+    container.appendChild(panel);
+
+    // Setup de Redimensionamento
+    this.setupGeminiResize(panel);
+
+    // Eventos
+    document.getElementById('close-gemini-panel').onclick = (e) => {
+      e.stopPropagation();
+      this.removeGeminiPanel();
+      this.stop();
+    };
+
+    const minimizeBtn = document.getElementById('minimize-gemini-panel');
+    minimizeBtn.onclick = (e) => {
+      e.stopPropagation();
+      panel.classList.toggle('minimized');
+      minimizeBtn.textContent = panel.classList.contains('minimized') ? '▢' : '_';
+    };
+
+    if (videoId) {
+      const togglePasteBtn = document.getElementById('toggle-paste-overlay');
+      const overlay = document.getElementById('smart-captions-paste-overlay');
+      const textarea = document.getElementById('paste-json-area');
+      const processBtn = document.getElementById('process-pasted-json');
+
+      togglePasteBtn.onclick = () => {
+        overlay.classList.toggle('active');
+        if (overlay.classList.contains('active')) {
+          textarea.focus();
+        }
+      };
+
+      processBtn.onclick = () => {
+        const text = textarea.value.trim();
+        if (!text) return;
+
+        try {
+          let cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          const rewrittenByIndex = JSON.parse(cleanJson);
+          this.applyRewrittenSubtitles(rewrittenByIndex, videoId);
+          this.removeGeminiPanel();
+        } catch (e) {
+          showToast("❌ JSON inválido do Gemini.");
+        }
+      };
+
+      togglePasteBtn.onmouseover = () => togglePasteBtn.style.background = '#3367d6';
+      togglePasteBtn.onmouseout = () => togglePasteBtn.style.background = '#4285f4';
+    }
+
+    // Focar na área de colagem após um tempo
+    setTimeout(() => {
+      const textarea = document.getElementById('paste-json-area');
+      if (textarea) textarea.focus();
+    }, 1000);
+  }
+
+  // Lógica de redimensionamento para o painel do Gemini
+  setupGeminiResize(panel) {
+    const handle = panel.querySelector('#gemini-panel-resize-handle');
+    let isResizing = false;
+    let startX;
+    let startWidth;
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = parseInt(window.getComputedStyle(panel).width, 10);
+      
+      panel.classList.add('resizing');
+
+      const onMouseMove = (moveEvent) => {
+        if (!isResizing) return;
+        // Como o painel está à direita, mover para a esquerda aumenta o tamanho
+        const delta = startX - moveEvent.clientX;
+        const newWidth = startWidth + delta;
+        
+        if (newWidth > 350 && newWidth < window.innerWidth * 0.9) {
+          panel.style.width = `${newWidth}px`;
+        }
+      };
+
+      const onMouseUp = () => {
+        isResizing = false;
+        panel.classList.remove('resizing');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        // Re-habilitar eventos no iframe
+        const iframe = panel.querySelector('iframe');
+        if (iframe) iframe.style.pointerEvents = 'auto';
+      };
+
+      // Desabilitar eventos no iframe durante o resize para não perder o foco do mouse
+      const iframe = panel.querySelector('iframe');
+      if (iframe) iframe.style.pointerEvents = 'none';
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
+
+
+  // Novo método para aplicar as legendas processadas
+  applyRewrittenSubtitles(rewrittenByIndex, videoId) {
+    try {
       this.rewrittenSubtitles = [];
       
       this.originalTimestampsMap.forEach((item, index) => {
         const indexStr = String(index);
-        // Usa o texto reescrito se existir, senão mantém o original
         const rewrittenText = rewrittenByIndex[indexStr] || item.originalText;
         this.rewrittenSubtitles.push({
           seconds: item.seconds,
@@ -2395,32 +2701,23 @@ ${formattedTranscription}
         });
       });
       
-      // Ordenar por tempo
       this.rewrittenSubtitles.sort((a, b) => a.seconds - b.seconds);
       
-      console.log("DEBUG: Legendas reconstruídas com timestamps originais. Total:", this.rewrittenSubtitles.length);
-      console.log("DEBUG: Primeiras 5 legendas:", this.rewrittenSubtitles.slice(0, 5));
-      console.log("DEBUG: Últimas 3 legendas:", this.rewrittenSubtitles.slice(-3));
-
-      // Salvar no cache para este vídeo
       if (videoId) {
-        // Criar uma cópia do array para o cache (evitar referência)
         this.subtitlesCache[videoId] = this.rewrittenSubtitles.map(item => ({
           seconds: item.seconds,
           text: item.text
         }));
-        console.log("DEBUG: Legendas salvas no cache para vídeo:", videoId);
       }
 
-      // Iniciar loop de sincronização
       this.startSyncLoop();
-      this.updateOverlayStatus("", false); 
-      
+      this.updateOverlayStatus("Legendas ativas!", false, 3000); 
     } catch (e) {
-      console.error("DEBUG: Erro ao processar/parsear Gemini:", e);
-      this.updateOverlayStatus("Erro ao processar IA.", false, 3000);
+      console.error("[SmartCaptions] Erro ao aplicar legendas:", e);
+      this.updateOverlayStatus("Erro ao aplicar legendas.", false, 3000);
     }
   }
+
 
   startSyncLoop() {
     if (this.checkInterval) clearInterval(this.checkInterval);
@@ -2588,4 +2885,5 @@ ${formattedTranscription}
 }
 
 // Inicializar o sistema
-const smartCaptions = new SmartSubtitleSystem();
+// Inicializar sistema globalmente para ser acessível pelo FAB
+const smartSubtitleSystem = new SmartSubtitleSystem();

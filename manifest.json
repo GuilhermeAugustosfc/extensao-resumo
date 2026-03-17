@@ -5,15 +5,29 @@
   "description": "Uma extensão para interagir com o YouTube",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "*://*.youtube.com/*",
     "*://*.googlevideo.com/*",
     "*://*.deepseek.com/*",
     "*://*.chatgpt.com/*",
-    "*://*.google.com/*"
+    "*://*.google.com/*",
+    "https://gemini.google.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
