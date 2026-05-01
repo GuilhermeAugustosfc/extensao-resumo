@@ -14,7 +14,8 @@
     "*://*.deepseek.com/*",
     "*://*.chatgpt.com/*",
     "*://*.google.com/*",
-    "https://gemini.google.com/*"
+    "https://gemini.google.com/*",
+    "https://claude.ai/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -44,12 +45,17 @@
       "run_at": "document_start"
     },
     {
-      "matches": ["*://*.youtube.com/*", "*://*.deepseek.com/*", "*://*.google.com/*", "*://*.chatgpt.com/*"],
+      "matches": ["*://*.youtube.com/*", "*://*.deepseek.com/*", "*://*.google.com/*", "*://*.chatgpt.com/*", "https://claude.ai/*"],
       "js": ["youtube-transcript.js", "content.js"]
     },
     {
       "matches": ["*://gemini.google.com/*"],
       "js": ["gemini-inject.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["claude-inject.js"],
       "run_at": "document_idle"
     }
   ],
