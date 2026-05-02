@@ -2667,6 +2667,376 @@ if (isYouTubePage()) {
   });
 }
 
+// ===== BOTÃO FLUTUANTE DEEPSEEK =====
+
+/**
+ * Cria e injeta o botão flutuante (FAB) do DeepSeek.
+ * Fica posicionado acima do FAB do Claude.
+ */
+function createDeepSeekFAB() {
+  if (!isYouTubePage()) return;
+  if (document.getElementById('yt-deepseek-fab')) return;
+
+  const fab = document.createElement('button');
+  fab.id = 'yt-deepseek-fab';
+  fab.title = 'Abrir DeepSeek AI';
+  fab.setAttribute('aria-label', 'Abrir DeepSeek AI');
+  fab.innerHTML = `
+    <span class="yt-deepseek-fab-icon">
+      <svg width="26" height="26" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="22" fill="white" fill-opacity="0.15"/>
+        <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="22" font-weight="bold" font-family="Arial,sans-serif" fill="white">DS</text>
+      </svg>
+    </span>
+  `;
+
+  fab.addEventListener('click', () => {
+    openDeepSeekIframePanel();
+  });
+
+  document.body.appendChild(fab);
+}
+
+/**
+ * Abre o painel lateral com iframe do DeepSeek.
+ * Mesma estratégia do Gemini: iframe embutido na página.
+ * A regra no rules.json remove os headers X-Frame-Options e CSP do DeepSeek.
+ */
+function openDeepSeekIframePanel() {
+  // Toggle: remove se já existir
+  const existing = document.getElementById('yt-deepseek-iframe-panel');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const panel = document.createElement('div');
+  panel.id = 'yt-deepseek-iframe-panel';
+  panel.className = 'yt-deepseek-iframe-panel';
+
+  panel.innerHTML = `
+    <div class="yt-deepseek-panel-header">
+      <div class="yt-deepseek-panel-title">
+        <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" font-size="24" font-weight="bold" font-family="Arial,sans-serif" fill="#4D6BFE">DS</text>
+        </svg>
+        <span>DeepSeek AI</span>
+      </div>
+      <div style="display:flex;gap:5px;">
+        <button id="yt-deepseek-panel-minimize" class="yt-deepseek-panel-btn" title="Minimizar">_</button>
+        <button id="yt-deepseek-panel-close" class="yt-deepseek-panel-btn" title="Fechar">×</button>
+      </div>
+    </div>
+    <iframe
+      id="yt-deepseek-iframe"
+      src="https://chat.deepseek.com/"
+      class="yt-deepseek-iframe"
+      allow="clipboard-read; clipboard-write; microphone; storage-access"
+      referrerpolicy="no-referrer"
+    ></iframe>
+    <div class="yt-deepseek-resize-handle" id="yt-deepseek-resize-handle"></div>
+  `;
+
+  const container = document.querySelector('#content.ytd-app') || document.querySelector('ytd-app') || document.body;
+  container.appendChild(panel);
+
+  // ── Fallback: escutar postMessage do deepseek-inject.js ──────────────────
+  // Se o Cloudflare challenge for detectado dentro do iframe,
+  // o deepseek-inject.js envia { source: 'deepseek-inject', type: 'deepseek-blocked' }
+  const iframe = document.getElementById('yt-deepseek-iframe');
+
+  // Criar overlay de fallback (oculto por padrão)
+  const fallbackOverlay = document.createElement('div');
+  fallbackOverlay.id = 'yt-deepseek-fallback';
+  fallbackOverlay.style.cssText = `
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, #0a0f2e 0%, #0f1a44 100%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 24px;
+    z-index: 10;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  `;
+  fallbackOverlay.innerHTML = `
+    <div style="font-size:52px;margin-bottom:16px;">🤖</div>
+    <h3 style="color:#4D6BFE;margin:0 0 10px;font-size:20px;font-weight:700;">DeepSeek AI</h3>
+    <p style="color:#8899cc;font-size:13px;margin:0 0 8px;line-height:1.6;max-width:280px;">
+      O DeepSeek usa proteção Cloudflare que bloqueia incorporação via iframe.
+    </p>
+    <p style="color:#6677aa;font-size:12px;margin:0 0 24px;line-height:1.5;max-width:280px;">
+      Clique abaixo para abrir em uma nova aba e usar normalmente.
+    </p>
+    <a id="yt-deepseek-open-link" href="https://chat.deepseek.com/" target="_blank" style="
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #3450d4, #4D6BFE);
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      box-shadow: 0 4px 16px rgba(77,107,254,0.4);
+      transition: opacity 0.2s, transform 0.2s;
+    "
+    onmouseover="this.style.opacity='0.85';this.style.transform='translateY(-1px)'"
+    onmouseout="this.style.opacity='1';this.style.transform='translateY(0)'">
+      Abrir DeepSeek →
+    </a>
+  `;
+
+  // Inserir o overlay dentro do painel (acima do iframe)
+  panel.insertBefore(fallbackOverlay, iframe);
+
+  function showDeepSeekFallback() {
+    if (fallbackOverlay.style.display === 'flex') return; // já visível
+    iframe.style.display = 'none';
+    fallbackOverlay.style.display = 'flex';
+  }
+
+  // Listener do postMessage do deepseek-inject.js
+  function onDeepSeekMessage(e) {
+    if (!e.data || e.data.source !== 'deepseek-inject') return;
+    if (e.data.type === 'deepseek-blocked') {
+      showDeepSeekFallback();
+    }
+    // se 'deepseek-ok' → manter iframe visível (não faz nada)
+  }
+  window.addEventListener('message', onDeepSeekMessage);
+
+  // Limpar listener quando o painel for fechado
+  const originalRemove = panel.remove.bind(panel);
+  panel.remove = function () {
+    window.removeEventListener('message', onDeepSeekMessage);
+    originalRemove();
+  };
+
+  // Fechar
+  document.getElementById('yt-deepseek-panel-close').onclick = (e) => {
+    e.stopPropagation();
+    panel.remove();
+  };
+
+  // Minimizar
+  const minimizeBtn = document.getElementById('yt-deepseek-panel-minimize');
+  minimizeBtn.onclick = (e) => {
+    e.stopPropagation();
+    panel.classList.toggle('minimized');
+    minimizeBtn.textContent = panel.classList.contains('minimized') ? '▢' : '_';
+  };
+
+  // Redimensionamento (mesma lógica do Gemini/Claude)
+  const handle = document.getElementById('yt-deepseek-resize-handle');
+  let isResizing = false;
+  let startX, startWidth;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = parseInt(window.getComputedStyle(panel).width, 10);
+    panel.classList.add('resizing');
+    document.addEventListener('mousemove', onDsMouseMove);
+    document.addEventListener('mouseup', onDsMouseUp);
+  });
+
+  function onDsMouseMove(e) {
+    if (!isResizing) return;
+    const diff = startX - e.clientX;
+    const newWidth = Math.min(Math.max(startWidth + diff, 320), window.innerWidth * 0.7);
+    panel.style.width = newWidth + 'px';
+  }
+
+  function onDsMouseUp() {
+    isResizing = false;
+    panel.classList.remove('resizing');
+    document.removeEventListener('mousemove', onDsMouseMove);
+    document.removeEventListener('mouseup', onDsMouseUp);
+  }
+}
+
+// Estilos do FAB DeepSeek e painel iframe DeepSeek
+try {
+  const deepseekStyles = document.createElement('style');
+  deepseekStyles.textContent = `
+    /* ===== FAB DEEPSEEK ===== */
+    #yt-deepseek-fab {
+      position: fixed;
+      bottom: 160px;
+      right: 28px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3450d4 0%, #4D6BFE 100%);
+      color: white;
+      border: none;
+      cursor: pointer;
+      z-index: 2147483647;
+      box-shadow: 0 4px 16px rgba(77, 107, 254, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    #yt-deepseek-fab:hover {
+      transform: scale(1.1) translateY(-2px);
+      box-shadow: 0 8px 24px rgba(77, 107, 254, 0.7);
+    }
+
+    #yt-deepseek-fab:active {
+      transform: scale(0.95);
+    }
+
+    .yt-deepseek-fab-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ===== PAINEL IFRAME DEEPSEEK ===== */
+    .yt-deepseek-iframe-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 550px;
+      height: 85vh;
+      background: #0d0d0d;
+      border: 1px solid #2a3560;
+      border-radius: 16px;
+      z-index: 2147483646;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.85), 0 0 0 1px rgba(77,107,254,0.15);
+      overflow: hidden;
+      animation: deepseekPanelSlideIn 0.3s ease-out;
+    }
+
+    @keyframes deepseekPanelSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+
+    .yt-deepseek-iframe-panel.minimized {
+      height: 48px !important;
+      width: 230px !important;
+      overflow: hidden;
+    }
+
+    .yt-deepseek-iframe-panel.minimized .yt-deepseek-iframe,
+    .yt-deepseek-iframe-panel.minimized .yt-deepseek-resize-handle {
+      display: none;
+    }
+
+    .yt-deepseek-panel-header {
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #0f1535 0%, #1a2055 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #4D6BFE;
+      flex-shrink: 0;
+    }
+
+    .yt-deepseek-panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #a8b8ff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .yt-deepseek-panel-btn {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 18px;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background 0.15s, color 0.15s;
+      padding: 0;
+    }
+
+    .yt-deepseek-panel-btn:hover {
+      background: rgba(77, 107, 254, 0.2);
+      color: #4D6BFE;
+    }
+
+    .yt-deepseek-iframe-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .yt-deepseek-iframe {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: #fff;
+    }
+
+    .yt-deepseek-blocked-msg {
+      position: absolute;
+      inset: 0;
+      background: #0d0d0d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .yt-deepseek-resize-handle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 10px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 1001;
+      background: transparent;
+      transition: background 0.2s;
+    }
+
+    .yt-deepseek-resize-handle:hover {
+      background: rgba(77, 107, 254, 0.2);
+    }
+
+    .yt-deepseek-iframe-panel.resizing {
+      user-select: none;
+    }
+
+    .yt-deepseek-iframe-panel.resizing .yt-deepseek-iframe {
+      pointer-events: none;
+    }
+  `;
+  document.head.appendChild(deepseekStyles);
+} catch(e) {}
+
+// Inicializar o FAB DeepSeek na página do YouTube
+if (isYouTubePage()) {
+  if (document.body) {
+    createDeepSeekFAB();
+  } else {
+    document.addEventListener('DOMContentLoaded', createDeepSeekFAB);
+  }
+  document.addEventListener('yt-navigate-finish', () => {
+    setTimeout(createDeepSeekFAB, 700);
+  });
+}
+
 // Verificar se estamos no ChatGPT e processar integração
 if (window.location.hostname.includes('chatgpt.com')) {
   handleChatGPTIntegration();
