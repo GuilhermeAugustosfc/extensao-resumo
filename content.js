@@ -636,13 +636,16 @@ function processContainers(containers, thumbnailSelector) {
         <span>Resumo AI</span>
       `;
 
-      // Criar botão Resumo ChatGPT
-      const chatgptButton = document.createElement("div");
-      chatgptButton.className = "ai-summary-video-container-button chatgpt";
-      chatgptButton.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+      // Criar botão Local IA
+      const localIAButton = document.createElement("div");
+      localIAButton.className = "ai-summary-video-container-button local-ia";
+      localIAButton.title = "Resumo com Local IA (Chrome)";
+      localIAButton.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12c0-2.4 1-4.6 2.6-6.2"/>
+          <polyline points="12 6 12 12 16 14"/>
         </svg>
+        <span>Local IA</span>
       `;
 
       // Criar botão Claude
@@ -658,12 +661,33 @@ function processContainers(containers, thumbnailSelector) {
 
       // Adicionar botões ao container
       buttonsContainer.appendChild(aiSummaryButton);
-      buttonsContainer.appendChild(chatgptButton);
+      buttonsContainer.appendChild(localIAButton);
       buttonsContainer.appendChild(claudeButton);
 
       // Adicionar o container como filho direto do contêiner do vídeo
       container.appendChild(buttonsContainer);
       container.classList.add("ai-summary-button-added");
+
+      // Extrair o título do vídeo a partir do container da thumbnail
+      // Tenta h3[title] (ytLockupMetadataViewModelHeadingReset), depois aria-label do link
+      let thumbnailVideoTitle = '';
+      const h3Title = container.querySelector('h3[title]');
+      if (h3Title) {
+        thumbnailVideoTitle = h3Title.getAttribute('title').trim();
+      }
+      if (!thumbnailVideoTitle) {
+        const titleLink = container.querySelector('.ytLockupMetadataViewModelTitle[aria-label]');
+        if (titleLink) {
+          // aria-label costuma ser "Título do vídeo X minutos" — pega só o texto do span interno
+          const titleSpan = titleLink.querySelector('span[role="text"]') || titleLink;
+          thumbnailVideoTitle = (titleSpan.textContent || '').trim();
+        }
+      }
+      if (!thumbnailVideoTitle) {
+        // Fallback genérico: qualquer link com aria-label dentro do container
+        const anyLink = container.querySelector('a[aria-label]');
+        if (anyLink) thumbnailVideoTitle = anyLink.getAttribute('aria-label').trim();
+      }
 
       // Evento para o botão Resumo AI usando o ID do vídeo diretamente
       aiSummaryButton.addEventListener("click", async (e) => {
@@ -671,16 +695,16 @@ function processContainers(containers, thumbnailSelector) {
         e.stopPropagation();
         
         // Mostrar popup de seleção de preset
-        showPresetSelector(videoId, 'gemini');
+        showPresetSelector(videoId, 'gemini', thumbnailVideoTitle, aiSummaryButton);
       });
 
-      // Evento para o botão Resumo ChatGPT
-      chatgptButton.addEventListener("click", async (e) => {
+      // Evento para o botão Local IA
+      localIAButton.addEventListener("click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         
         // Mostrar popup de seleção de preset
-        showPresetSelector(videoId, 'chatgpt');
+        showPresetSelector(videoId, 'local-ia', thumbnailVideoTitle, localIAButton);
       });
 
       // Evento para o botão Claude
@@ -689,7 +713,7 @@ function processContainers(containers, thumbnailSelector) {
         e.stopPropagation();
         
         // Mostrar popup de seleção de preset
-        showPresetSelector(videoId, 'claude');
+        showPresetSelector(videoId, 'claude', thumbnailVideoTitle, claudeButton);
       });
     } catch (error) {
     }
@@ -697,6 +721,23 @@ function processContainers(containers, thumbnailSelector) {
 }
 
 // (Função processSpecificContentContainers removida)
+
+// Função para obter o título do vídeo atual
+function getCurrentVideoTitle() {
+  // Tenta pelo atributo title do yt-formatted-string (mais confiável)
+  const titleEl = document.querySelector('#title yt-formatted-string');
+  if (titleEl) {
+    const t = titleEl.getAttribute('title') || titleEl.textContent;
+    if (t && t.trim()) return t.trim();
+  }
+  // Fallback: h1 dentro de ytd-watch-metadata
+  const h1 = document.querySelector('ytd-watch-metadata h1 yt-formatted-string');
+  if (h1) {
+    const t = h1.getAttribute('title') || h1.textContent;
+    if (t && t.trim()) return t.trim();
+  }
+  return 'título do vídeo';
+}
 
 // Definição dos presets de prompt
 const PROMPT_PRESETS = {
@@ -849,11 +890,44 @@ Use markdown com formatação clara para facilitar revisão rápida.
 Transcrição do vídeo:
 
 [TRANSCRIPTION]`
+  },
+  tituloExplicacao: {
+    name: '🏷️ Título: Explicação',
+    description: 'Por que o título representa o vídeo',
+    prompt: `O título deste vídeo é: "[VIDEO_TITLE]"
+
+Baseado na transcrição abaixo, explique por que esse título foi escolhido e como ele se relaciona com o conteúdo do vídeo. Responda em português do Brasil usando linguagem simples.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  tituloSimplesDireto: {
+    name: '🏷️ Título: Simples e Direto',
+    description: 'Explicação curta e objetiva do título',
+    prompt: `O título deste vídeo é: "[VIDEO_TITLE]"
+
+Baseado na transcrição abaixo, explique de maneira simples e direta por que esse título representa o vídeo. Seja objetivo, use no máximo 3 parágrafos curtos. Responda em português do Brasil.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
+  },
+  tituloSimplesDetalhado: {
+    name: '🏷️ Título: Simples e Detalhado',
+    description: 'Explicação completa e acessível do título',
+    prompt: `O título deste vídeo é: "[VIDEO_TITLE]"
+
+Baseado na transcrição abaixo, explique de maneira simples e detalhada por que esse título representa o vídeo. Desenvolva cada ponto relevante da transcrição que se conecta ao título, use exemplos do próprio conteúdo e organize em tópicos para facilitar a leitura. Responda em português do Brasil usando markdown.
+
+Transcrição do vídeo:
+
+[TRANSCRIPTION]`
   }
 };
 
 // Função para mostrar o seletor de presets
-function showPresetSelector(videoId, platform) {
+function showPresetSelector(videoId, platform, videoTitle, clickedButton = null) {
   // Remover seletor existente se houver
   const existingSelector = document.querySelector('.youtube-preset-selector');
   if (existingSelector) existingSelector.remove();
@@ -900,17 +974,23 @@ function showPresetSelector(videoId, platform) {
     option.addEventListener('click', async () => {
       const presetKey = option.getAttribute('data-preset');
       selector.remove();
-      await processWithPreset(videoId, presetKey, platform);
+      await processWithPreset(videoId, presetKey, platform, videoTitle, clickedButton);
     });
   });
 }
 
 // Função para processar com o preset selecionado
-async function processWithPreset(videoId, presetKey, platform) {
+async function processWithPreset(videoId, presetKey, platform, videoTitle, clickedButton = null) {
   const preset = PROMPT_PRESETS[presetKey];
   
   // Mostrar loading
   console.log(`Processando com preset: ${preset.name}`);
+  
+  // Se for Local IA, exibir popup local em vez de obter transcrição geral e redirecionar
+  if (platform === 'local-ia') {
+    showLocalIAPopup(clickedButton, videoId, presetKey, (videoTitle && videoTitle.trim()) ? videoTitle.trim() : getCurrentVideoTitle());
+    return;
+  }
   
   try {
     const transcription = await getVideoTranscription(videoId);
@@ -919,8 +999,13 @@ async function processWithPreset(videoId, presetKey, platform) {
       return;
     }
     
+    // Usar título passado (thumbnail) ou tentar pegar da página atual (player)
+    const resolvedTitle = (videoTitle && videoTitle.trim()) ? videoTitle.trim() : getCurrentVideoTitle();
+    
     // Substituir placeholder pela transcrição
-    const fullPrompt = preset.prompt.replace('[TRANSCRIPTION]', transcription);
+    const fullPrompt = preset.prompt
+      .replace('[VIDEO_TITLE]', resolvedTitle)
+      .replace('[TRANSCRIPTION]', transcription);
     
     // Salvar no chrome.storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -950,9 +1035,253 @@ async function processWithPreset(videoId, presetKey, platform) {
     } else if (platform === 'claude') {
       window.open('https://claude.ai/new', '_blank');
     }
-    
   } catch (error) {
     showToast('❌ Erro: ' + error.message);
+  }
+}
+
+// ===== API DE SUMARIZAÇÃO LOCAL DO CHROME =====
+async function summarizeTextLocally(text, progressCallback) {
+  return new Promise((resolve, reject) => {
+    const requestId = 'sum_' + Math.random().toString(36).substring(2, 9);
+    
+    const options = {
+      type: 'tldr',
+      format: 'plain-text',
+      length: 'long',
+      preference: 'capability'
+    };
+    
+    // Timeout de 120 segundos para downloads ou processamentos longos
+    const timeout = setTimeout(() => {
+      window.removeEventListener('yt-summarize-response', handleResponse);
+      reject(new Error("O processamento da IA local expirou. Verifique se o modelo do Gemini Nano está totalmente baixado e ativado no seu navegador em chrome://flags."));
+    }, 120000);
+    
+    function handleResponse(event) {
+      if (event.detail && event.detail.requestId === requestId) {
+        clearTimeout(timeout);
+        window.removeEventListener('yt-summarize-response', handleResponse);
+        
+        if (event.detail.error) {
+          reject(new Error(event.detail.error));
+        } else {
+          resolve(event.detail.result);
+        }
+      }
+    }
+    
+    window.addEventListener('yt-summarize-response', handleResponse);
+    
+    if (progressCallback) progressCallback("Disparando processamento via IA Local (Main World)...");
+    
+    // Disparar o CustomEvent para o MAIN world
+    window.dispatchEvent(new CustomEvent('yt-summarize-request', {
+      detail: { text, options, requestId }
+    }));
+  });
+}
+
+// ===== POPUP DO LOCAL IA (EXIBIÇÃO E FLUXO) =====
+async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
+  // Remover popup existente se houver
+  const existingPopup = document.querySelector('.youtube-local-ia-popup');
+  if (existingPopup) existingPopup.remove();
+  
+  const popup = document.createElement('div');
+  popup.className = 'youtube-local-ia-popup';
+  popup.innerHTML = `
+    <div class="local-ia-popup-header">
+      <h4>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12c0-2.4 1-4.6 2.6-6.2"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Local IA (Gemini Nano)
+      </h4>
+      <button class="local-ia-popup-close">×</button>
+    </div>
+    <div class="local-ia-popup-body">
+      <div class="local-ia-loading-container">
+        <div class="local-ia-spinner"></div>
+        <div class="local-ia-loading-text">Obtendo transcrição do vídeo...</div>
+      </div>
+    </div>
+    <div class="local-ia-popup-footer">
+      <span>Inicializando IA Local</span>
+      <button class="local-ia-popup-copy-btn" style="display: none;">Copiar</button>
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+  
+  // Posicionamento inteligente acima do botão
+  if (clickedButton) {
+    const buttonRect = clickedButton.getBoundingClientRect();
+    const popupWidth = 340;
+    const popupHeight = 320; // Estimado para o estado inicial/médio
+    
+    let topPos = buttonRect.top + window.scrollY - popupHeight - 10;
+    let leftPos = buttonRect.left + window.scrollX - (popupWidth / 2) + (buttonRect.width / 2);
+    
+    // Ajustar se passar dos limites esquerdo/direito da janela
+    if (leftPos < 10) leftPos = 10;
+    if (leftPos + popupWidth > window.innerWidth - 10) {
+      leftPos = window.innerWidth - popupWidth - 10;
+    }
+    
+    // Ajustar se passar do topo da tela
+    if (topPos < window.scrollY + 10) {
+      topPos = buttonRect.bottom + window.scrollY + 10; // Exibir abaixo
+    }
+    
+    popup.style.top = `${topPos}px`;
+    popup.style.left = `${leftPos}px`;
+  } else {
+    // Fallback de centralização
+    popup.style.position = 'fixed';
+    popup.style.top = '50%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+  }
+  
+  // Efeito de fade-in suave
+  setTimeout(() => popup.classList.add('active'), 50);
+  
+  // Configurar botão Fechar
+  const closeBtn = popup.querySelector('.local-ia-popup-close');
+  closeBtn.addEventListener('click', () => {
+    popup.classList.remove('active');
+    setTimeout(() => popup.remove(), 250);
+  });
+  
+  // Iniciar fluxo assíncrono de transcrição e resumo
+  try {
+    const transcription = await getVideoTranscription(videoId);
+    if (!transcription) {
+      showPopupError(popup, "Não foi possível obter a transcrição automática desse vídeo do YouTube. O vídeo pode estar sem legendas disponíveis.", videoId, presetKey, videoTitle);
+      return;
+    }
+    
+    const loadingText = popup.querySelector('.local-ia-loading-text');
+    if (loadingText) loadingText.textContent = "Habilitando IA Local (Gemini Nano)...";
+    
+    const preset = PROMPT_PRESETS[presetKey];
+    const fullPrompt = preset.prompt
+      .replace('[VIDEO_TITLE]', videoTitle)
+      .replace('[TRANSCRIPTION]', transcription);
+    
+    // Executar sumarização local
+    const summary = await summarizeTextLocally(fullPrompt, (progressMsg) => {
+      if (loadingText) loadingText.textContent = progressMsg;
+    });
+    
+    showPopupResult(popup, summary, videoTitle);
+  } catch (err) {
+    console.error("[Local IA] Falha no processamento:", err);
+    showPopupError(popup, err.message, videoId, presetKey, videoTitle);
+  }
+}
+
+function showPopupResult(popup, text, videoTitle) {
+  const body = popup.querySelector('.local-ia-popup-body');
+  if (body) {
+    body.innerHTML = `
+      <div style="font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; color: #ffffff;">
+        ${videoTitle}
+      </div>
+      <div class="local-ia-content-markdown" style="font-size: 12.5px; text-align: left;">
+        ${renderMarkdown(text)}
+      </div>
+    `;
+  }
+  
+  const footerText = popup.querySelector('.local-ia-popup-footer span');
+  if (footerText) {
+    footerText.innerHTML = "🤖 Sumarizado via <strong>Gemini Nano</strong>";
+  }
+  
+  const copyBtn = popup.querySelector('.local-ia-popup-copy-btn');
+  if (copyBtn) {
+    copyBtn.style.display = 'block';
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.textContent = 'Copiado!';
+        copyBtn.style.background = '#30d158';
+        setTimeout(() => {
+          copyBtn.textContent = 'Copiar';
+          copyBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        }, 2000);
+      } catch (e) {
+        showToast('❌ Falha ao copiar.');
+      }
+    };
+  }
+}
+
+function showPopupError(popup, message, videoId, presetKey, videoTitle) {
+  const body = popup.querySelector('.local-ia-popup-body');
+  if (body) {
+    body.innerHTML = `
+      <div class="local-ia-error-container" style="text-align: center;">
+        <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: #ff453a; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          ⚠️ IA Local Indisponível
+        </div>
+        <div style="font-size: 12px; opacity: 0.85; margin-bottom: 12px; line-height: 1.4; text-align: left;">
+          ${message}
+        </div>
+        <div style="font-size: 11px; opacity: 0.8; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); text-align: left; line-height: 1.5; margin-bottom: 14px; color: #e5e5ea;">
+          <strong>Como habilitar o Gemini Nano no Chrome:</strong><br>
+          1. Acesse <code>chrome://flags</code> no seu navegador.<br>
+          2. Ative <strong>"Enables optimization guide on-device model"</strong> (mude para Enabled Bypass list ou Enabled).<br>
+          3. Ative <strong>"Prompt API for Gemini Nano"</strong> (mude para Enabled).<br>
+          4. Reinicie o Chrome e aguarde alguns minutos para o download do modelo.<br>
+          <span style="font-size: 10px; color: #8e8e93; display: block; margin-top: 4px;">*Requer computador com GPU dedicada e min. 8GB de RAM.</span>
+        </div>
+        <button class="local-ia-fallback-btn">Usar Gemini na Nuvem (Fallback) ☁️</button>
+      </div>
+    `;
+    
+    const fallbackBtn = body.querySelector('.local-ia-fallback-btn');
+    fallbackBtn.onclick = async () => {
+      body.innerHTML = `
+        <div class="local-ia-loading-container">
+          <div class="local-ia-spinner"></div>
+          <div class="local-ia-loading-text">Processando com Gemini na Nuvem (API)...</div>
+        </div>
+      `;
+      
+      const footerText = popup.querySelector('.local-ia-popup-footer span');
+      if (footerText) footerText.textContent = "Obtendo dados...";
+      
+      try {
+        const transcription = await getVideoTranscription(videoId);
+        if (!transcription) {
+          showToast("❌ Não foi possível obter a transcrição.");
+          popup.remove();
+          return;
+        }
+        
+        if (footerText) footerText.textContent = "Processando Gemini Flash...";
+        
+        const preset = PROMPT_PRESETS[presetKey];
+        const fullPrompt = preset.prompt
+          .replace('[VIDEO_TITLE]', videoTitle)
+          .replace('[TRANSCRIPTION]', transcription);
+        
+        const response = await callGeminiAPI(fullPrompt);
+        showPopupResult(popup, response, videoTitle);
+      } catch (err) {
+        showToast("❌ Erro no fallback: " + err.message);
+        popup.remove();
+      }
+    };
+  }
+  
+  const footerText = popup.querySelector('.local-ia-popup-footer span');
+  if (footerText) {
+    footerText.textContent = "Modo Fallback Disponível";
   }
 }
 
@@ -1002,7 +1331,10 @@ function showPresetSelectorWithTranscript(transcriptWithTs, videoId) {
       selector.remove();
 
       const preset = PROMPT_PRESETS[presetKey];
-      const fullPrompt = preset.prompt.replace('[TRANSCRIPTION]', transcriptWithTs);
+      const videoTitle = getCurrentVideoTitle();
+      const fullPrompt = preset.prompt
+        .replace('[VIDEO_TITLE]', videoTitle)
+        .replace('[TRANSCRIPTION]', transcriptWithTs);
 
       // Salvar no chrome.storage
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -1132,12 +1464,171 @@ try {
       pointer-events: auto;
     }
 
-    .ai-summary-video-container-button.chatgpt {
+    .ai-summary-video-container-button.local-ia {
       background-color: #10a37f;
     }
 
-    .ai-summary-video-container-button.chatgpt:hover {
+    .ai-summary-video-container-button.local-ia:hover {
       background-color: #0d8a6f;
+    }
+
+    /* Estilos para o popup do Local IA (Glassmorphism) */
+    .youtube-local-ia-popup {
+      position: absolute;
+      width: 340px;
+      max-height: 400px;
+      background: rgba(28, 28, 30, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      color: #f5f5f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      z-index: 10000;
+      opacity: 0;
+      transform: translateY(10px) scale(0.95);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      overflow: hidden;
+    }
+
+    .youtube-local-ia-popup.active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .local-ia-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .local-ia-popup-header h4 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #30d158;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .local-ia-popup-close {
+      background: none;
+      border: none;
+      color: #8e8e93;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .local-ia-popup-close:hover {
+      color: #ffffff;
+    }
+
+    .local-ia-popup-body {
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-y: auto;
+      flex: 1;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .local-ia-popup-body::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .local-ia-popup-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .local-ia-popup-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+
+    .local-ia-popup-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px;
+      background: rgba(0, 0, 0, 0.2);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 11px;
+      color: #8e8e93;
+    }
+
+    .local-ia-popup-copy-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 4px;
+      color: #ffffff;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .local-ia-popup-copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Estado de Loading do Popup */
+    .local-ia-loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+      gap: 12px;
+    }
+
+    .local-ia-spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #30d158;
+      border-radius: 50%;
+      animation: local-ia-spin 1s linear infinite;
+    }
+
+    @keyframes local-ia-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Mensagem de Erro/Fallback */
+    .local-ia-error-container {
+      padding: 10px 0;
+      color: #ff453a;
+    }
+
+    .local-ia-fallback-btn {
+      margin-top: 12px;
+      width: 100%;
+      background: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .local-ia-fallback-btn:hover {
+      background: #3367d6;
     }
 
     .ai-summary-video-container-button.claude {

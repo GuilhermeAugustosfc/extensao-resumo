@@ -557,5 +557,48 @@
         }));
     });
 
-    console.log('[YT-Transcript] 🚀 MAIN world ready (4 strategies)');
+    window.addEventListener('yt-summarize-request', async function(event) {
+        const { text, options, requestId } = event.detail;
+        console.log(`[YT-Summarize] Req recebida no MAIN world: ${requestId}`);
+        
+        try {
+            // Obter a API de sumarização disponível no escopo MAIN
+            let summarizerApi = null;
+            if (typeof window.Summarizer !== 'undefined') {
+                summarizerApi = window.Summarizer;
+            } else if (typeof Summarizer !== 'undefined') {
+                summarizerApi = Summarizer;
+            } else if (typeof window.summarizer !== 'undefined') {
+                summarizerApi = window.summarizer;
+            } else if (typeof window.ai !== 'undefined' && typeof window.ai.summarizer !== 'undefined') {
+                summarizerApi = window.ai.summarizer;
+            }
+            
+            if (!summarizerApi) {
+                throw new Error("A API de sumarização (Gemini Nano) não foi encontrada no escopo global da página do YouTube. Certifique-se de que ativou as flags de IA Local em chrome://flags.");
+            }
+            
+            console.log('[YT-Summarize] Criando instância de summarizer local...');
+            const summarizerInstance = await summarizerApi.create(options);
+            
+            console.log('[YT-Summarize] Processando sumarização local...');
+            const summary = await summarizerInstance.summarize(text);
+            
+            if (summarizerInstance.destroy) {
+                summarizerInstance.destroy();
+            }
+            
+            console.log('[YT-Summarize] Sucesso, disparando resposta...');
+            window.dispatchEvent(new CustomEvent('yt-summarize-response', {
+                detail: { requestId, result: summary, error: null }
+            }));
+        } catch (err) {
+            console.error("[YT-Summarize] Erro no processamento local:", err);
+            window.dispatchEvent(new CustomEvent('yt-summarize-response', {
+                detail: { requestId, result: null, error: err.message }
+            }));
+        }
+    });
+
+    console.log('[YT-Transcript] 🚀 MAIN world ready (4 strategies + local summarizer listener)');
 })();
