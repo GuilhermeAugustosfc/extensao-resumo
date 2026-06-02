@@ -94,6 +94,44 @@
         return undefined;
     }
 
+    function splitTextIntoChunks(text, maxChunkSize = 7500, overlap = 500) {
+        if (!text) return [];
+        if (text.length <= maxChunkSize) {
+            return [text];
+        }
+        
+        const chunks = [];
+        let startIndex = 0;
+        
+        while (startIndex < text.length) {
+            // Se o resto do texto cabe inteiramente no bloco, pegar o resto e encerrar
+            if (startIndex + maxChunkSize >= text.length) {
+                chunks.push(text.substring(startIndex).trim());
+                break;
+            }
+            
+            let endIndex = startIndex + maxChunkSize;
+            
+            // Tentar cortar em um espaço para evitar quebrar palavras no meio
+            const lastSpace = text.lastIndexOf(' ', endIndex);
+            if (lastSpace > startIndex + (maxChunkSize / 2)) {
+                endIndex = lastSpace;
+            }
+            
+            chunks.push(text.substring(startIndex, endIndex).trim());
+            
+            // Avançar considerando o overlap
+            startIndex = endIndex - overlap;
+            
+            // Garantir que startIndex avança pelo menos 1 caractere para evitar loops infinitos
+            if (startIndex <= endIndex - maxChunkSize) {
+                startIndex = endIndex;
+            }
+        }
+        
+        return chunks;
+    }
+
     // ==================== ESTRATÉGIA 1: Simular clique no botão de transcrição via YT API interna ====================
 
     /**
@@ -558,7 +596,7 @@
     });
 
     window.addEventListener('yt-summarize-request', async function(event) {
-        const { text, options, requestId } = event.detail;
+        const { text, presetPrompt, videoTitle, options, requestId } = event.detail;
         console.log(`[YT-Summarize] Req recebida no MAIN world: ${requestId}`);
         
         try {
@@ -578,27 +616,209 @@
                 throw new Error("A API de sumarização (Gemini Nano) não foi encontrada no escopo global da página do YouTube. Certifique-se de que ativou as flags de IA Local em chrome://flags.");
             }
             
-            console.log('[YT-Summarize] Criando instância de summarizer local...');
-            const summarizerInstance = await summarizerApi.create(options);
+            // 1. Fatiar a transcrição em pedaços de tamanho ideal (limite de 7500 caracteres)
+            const chunks = splitTextIntoChunks(text, 7500, 500);
+            const totalChunks = chunks.length;
+            console.log(`[YT-Summarize] Texto dividido em ${totalChunks} parte(s).`);
             
-            console.log('[YT-Summarize] Processando sumarização local...');
-            const summary = await summarizerInstance.summarize(text);
+            // 2. Comunicar ao Isolated World a contagem de partes para criar as abas
+            window.dispatchEvent(new CustomEvent('yt-summarize-chunks-count', {
+                detail: { requestId, totalChunks }
+            }));
             
-            if (summarizerInstance.destroy) {
-                summarizerInstance.destroy();
+            const summaries = [];
+            
+            // 3. Processar sequencialmente cada pedaço
+            for (let i = 0; i < totalChunks; i++) {
+                console.log(`[YT-Summarize] Criando instância para a parte ${i + 1}/${totalChunks}...`);
+                
+                // Disparar evento de progresso de inicialização
+                window.dispatchEvent(new CustomEvent('yt-summarize-progress', {
+                    detail: { requestId, chunkIndex: i, text: `Inicializando IA para Parte ${i + 1} de ${totalChunks}...` }
+                }));
+                
+                const summarizerInstance = await summarizerApi.create(options);
+                
+                console.log(`[YT-Summarize] Processando parte ${i + 1}/${totalChunks}...`);
+                window.dispatchEvent(new CustomEvent('yt-summarize-progress', {
+                    detail: { requestId, chunkIndex: i, text: `Resumindo Parte ${i + 1} de ${totalChunks} localmente...` }
+                }));
+                
+                // Injetar o prompt do preset em cada pedaço para respeitar o idioma (pt-BR) e estilo!
+                let chunkPrompt = chunks[i];
+                if (presetPrompt) {
+                    chunkPrompt = presetPrompt
+                        .replace('[VIDEO_TITLE]', videoTitle || '')
+                        .replace('[TRANSCRIPTION]', chunks[i]);
+                }
+                
+                const chunkSummary = await summarizerInstance.summarize(chunkPrompt);
+                summaries.push(chunkSummary);
+                
+                if (summarizerInstance.destroy) {
+                    summarizerInstance.destroy();
+                }
+                
+                console.log(`[YT-Summarize] Parte ${i + 1} pronta.`);
+                // 4. Enviar a parte concluída em tempo real para a interface de leitura
+                window.dispatchEvent(new CustomEvent('yt-summarize-chunk-ready', {
+                    detail: { requestId, chunkIndex: i, result: chunkSummary }
+                }));
             }
             
-            console.log('[YT-Summarize] Sucesso, disparando resposta...');
+            // 5. Fase de consolidação (Reduce)
+            let finalConsolidatedResult = "";
+            if (totalChunks === 1) {
+                // Se só tem 1 parte, o resumo final consolidado é o próprio resumo dela
+                finalConsolidatedResult = summaries[0];
+            } else {
+                console.log(`[YT-Summarize] Iniciando consolidação final de todos os resumos parciais...`);
+                window.dispatchEvent(new CustomEvent('yt-summarize-progress', {
+                    detail: { requestId, chunkIndex: totalChunks, text: `Consolidando resumo geral final...` }
+                }));
+                
+                const consolidatedText = summaries.map((s, idx) => `PARTE ${idx + 1}:\n${s}`).join("\n\n");
+                
+                // Criar instância final para consolidação
+                const summarizerInstance = await summarizerApi.create(options);
+                
+                let reductionPrompt = `Faça um resumo final unificado, coeso e estruturado em português do Brasil juntando todos os resumos parciais de vídeo abaixo. Apresente os principais tópicos em formato markdown enriquecido:\n\n${consolidatedText}`;
+                
+                if (presetPrompt) {
+                    reductionPrompt = presetPrompt
+                        .replace('[VIDEO_TITLE]', videoTitle || '')
+                        .replace('[TRANSCRIPTION]', consolidatedText);
+                }
+                
+                finalConsolidatedResult = await summarizerInstance.summarize(reductionPrompt);
+                
+                if (summarizerInstance.destroy) {
+                    summarizerInstance.destroy();
+                }
+            }
+            
+            console.log('[YT-Summarize] Sumarização progressiva concluída com sucesso!');
+            
+            // 6. Enviar o resultado consolidado e finalizar
             window.dispatchEvent(new CustomEvent('yt-summarize-response', {
-                detail: { requestId, result: summary, error: null }
+                detail: { requestId, result: finalConsolidatedResult, error: null }
             }));
+            
         } catch (err) {
-            console.error("[YT-Summarize] Erro no processamento local:", err);
+            console.error("[YT-Summarize] Erro na sumarização progressiva local:", err);
             window.dispatchEvent(new CustomEvent('yt-summarize-response', {
                 detail: { requestId, result: null, error: err.message }
             }));
         }
     });
 
-    console.log('[YT-Transcript] 🚀 MAIN world ready (4 strategies + local summarizer listener)');
+    window.addEventListener('yt-translate-request', async function(event) {
+        const { text, sourceLanguage = 'en', targetLanguage = 'pt', requestId } = event.detail;
+        console.log(`[YT-Translate] Req recebida no MAIN world: ${requestId}`);
+        
+        try {
+            // Identificar a Translator API preferencial ou APIs alternativas de fallback
+            let translatorApi = null;
+            let isModernApi = false;
+            
+            if (typeof Translator !== 'undefined') {
+                translatorApi = Translator;
+                isModernApi = true;
+            } else if (typeof window.Translator !== 'undefined') {
+                translatorApi = window.Translator;
+                isModernApi = true;
+            } else if (typeof self.Translator !== 'undefined') {
+                translatorApi = self.Translator;
+                isModernApi = true;
+            } else if (typeof window.translation !== 'undefined') {
+                translatorApi = window.translation;
+            } else if (typeof window.ai !== 'undefined' && typeof window.ai.translator !== 'undefined') {
+                translatorApi = window.ai.translator;
+            }
+            
+            if (!translatorApi) {
+                throw new Error("A API Translator local não foi encontrada no escopo. Certifique-se de que ativou as flags de tradução local em chrome://flags.");
+            }
+            
+            // Fluxo usando a API de Tradução moderna (classe Translator) que o usuário demonstrou
+            if (isModernApi) {
+                console.log("[YT-Translate] Usando API Translator preferencial.");
+                
+                // Verificar disponibilidade
+                const availability = await translatorApi.availability({
+                    sourceLanguage,
+                    targetLanguage
+                });
+                
+                console.log(`[YT-Translate] Disponibilidade para en->pt: ${availability}`);
+                if (availability === 'no') {
+                    throw new Error(`Tradução de '${sourceLanguage}' para '${targetLanguage}' não é suportada localmente.`);
+                }
+                
+                // Criar instância
+                const translatorInstance = await translatorApi.create({
+                    sourceLanguage,
+                    targetLanguage
+                });
+                
+                if (!translatorInstance) {
+                    throw new Error("Falha ao instanciar o tradutor local do Chrome.");
+                }
+                
+                console.log('[YT-Translate] Traduzindo texto localmente...');
+                const translatedText = await translatorInstance.translate(text);
+                
+                if (translatorInstance.destroy) {
+                    translatorInstance.destroy();
+                }
+                
+                console.log('[YT-Translate] Tradução concluída com sucesso!');
+                window.dispatchEvent(new CustomEvent('yt-translate-response', {
+                    detail: { requestId, result: translatedText, error: null }
+                }));
+                return;
+            }
+            
+            // Fluxo de Fallback (para APIs experimentais legadas window.translation / window.ai.translator)
+            console.log("[YT-Translate] Usando API de tradução experimental como fallback.");
+            let canTranslate = 'maybe';
+            if (typeof translatorApi.canTranslate === 'function') {
+                canTranslate = await translatorApi.canTranslate({ sourceLanguage, targetLanguage });
+            }
+            
+            if (canTranslate === 'no') {
+                throw new Error(`Tradução de '${sourceLanguage}' para '${targetLanguage}' não é suportada localmente.`);
+            }
+            
+            let translatorInstance = null;
+            if (typeof translatorApi.createTranslator === 'function') {
+                translatorInstance = await translatorApi.createTranslator({ sourceLanguage, targetLanguage });
+            } else if (typeof translatorApi.create === 'function') {
+                translatorInstance = await translatorApi.create({ sourceLanguage, targetLanguage });
+            }
+            
+            if (!translatorInstance) {
+                throw new Error("Falha ao instanciar o tradutor local experimental.");
+            }
+            
+            console.log('[YT-Translate] Traduzindo com API experimental...');
+            const translatedText = await translatorInstance.translate(text);
+            
+            if (translatorInstance.destroy) {
+                translatorInstance.destroy();
+            }
+            
+            console.log('[YT-Translate] Tradução experimental concluída!');
+            window.dispatchEvent(new CustomEvent('yt-translate-response', {
+                detail: { requestId, result: translatedText, error: null }
+            }));
+        } catch (err) {
+            console.error("[YT-Translate] Erro na tradução local:", err);
+            window.dispatchEvent(new CustomEvent('yt-translate-response', {
+                detail: { requestId, result: null, error: err.message }
+            }));
+        }
+    });
+
+    console.log('[YT-Transcript] 🚀 MAIN world ready (4 strategies + local summarizer and translator listeners)');
 })();

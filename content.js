@@ -1048,8 +1048,7 @@ async function summarizeTextLocally(text, progressCallback) {
     const options = {
       type: 'tldr',
       format: 'plain-text',
-      length: 'long',
-      preference: 'capability'
+      length: 'long'
     };
     
     // Timeout de 120 segundos para downloads ou processamentos longos
@@ -1082,11 +1081,15 @@ async function summarizeTextLocally(text, progressCallback) {
   });
 }
 
-// ===== POPUP DO LOCAL IA (EXIBIÇÃO E FLUXO) =====
+// ===== POPUP DO LOCAL IA (EXIBIÇÃO E FLUXO DE ABAS PROGRESSIVAS) =====
 async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
   // Remover popup existente se houver
   const existingPopup = document.querySelector('.youtube-local-ia-popup');
-  if (existingPopup) existingPopup.remove();
+  if (existingPopup) {
+    // Tentar limpar ouvintes caso o popup anterior tenha sido recriado
+    if (existingPopup.__cleanup) existingPopup.__cleanup();
+    existingPopup.remove();
+  }
   
   const popup = document.createElement('div');
   popup.className = 'youtube-local-ia-popup';
@@ -1101,6 +1104,7 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
       </h4>
       <button class="local-ia-popup-close">×</button>
     </div>
+    <div class="local-ia-tabs-container" style="display: none;"></div>
     <div class="local-ia-popup-body">
       <div class="local-ia-loading-container">
         <div class="local-ia-spinner"></div>
@@ -1109,7 +1113,10 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
     </div>
     <div class="local-ia-popup-footer">
       <span>Inicializando IA Local</span>
-      <button class="local-ia-popup-copy-btn" style="display: none;">Copiar</button>
+      <div style="display: flex; gap: 8px;">
+        <button class="local-ia-popup-translate-btn" style="display: none;">Traduzir 🌐</button>
+        <button class="local-ia-popup-copy-btn" style="display: none;">Copiar Parte</button>
+      </div>
     </div>
   `;
   
@@ -1118,39 +1125,320 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
   // Posicionamento inteligente acima do botão
   if (clickedButton) {
     const buttonRect = clickedButton.getBoundingClientRect();
-    const popupWidth = 340;
-    const popupHeight = 320; // Estimado para o estado inicial/médio
+    const popupWidth = 480; // largura ampliada para legibilidade
+    const popupHeight = 320; 
     
     let topPos = buttonRect.top + window.scrollY - popupHeight - 10;
     let leftPos = buttonRect.left + window.scrollX - (popupWidth / 2) + (buttonRect.width / 2);
     
-    // Ajustar se passar dos limites esquerdo/direito da janela
     if (leftPos < 10) leftPos = 10;
     if (leftPos + popupWidth > window.innerWidth - 10) {
       leftPos = window.innerWidth - popupWidth - 10;
     }
     
-    // Ajustar se passar do topo da tela
     if (topPos < window.scrollY + 10) {
-      topPos = buttonRect.bottom + window.scrollY + 10; // Exibir abaixo
+      topPos = buttonRect.bottom + window.scrollY + 10; 
     }
     
     popup.style.top = `${topPos}px`;
     popup.style.left = `${leftPos}px`;
   } else {
-    // Fallback de centralização
     popup.style.position = 'fixed';
     popup.style.top = '50%';
     popup.style.left = '50%';
     popup.style.transform = 'translate(-50%, -50%)';
   }
   
-  // Efeito de fade-in suave
   setTimeout(() => popup.classList.add('active'), 50);
   
-  // Configurar botão Fechar
+  const requestId = 'sum_' + Math.random().toString(36).substring(2, 9);
+  const tabContentsMap = {};
+  const tabContentsMapOriginal = {};
+  const tabTranslatedFlags = {};
+  let currentActiveTabIdx = null;
+  
+  // Função para mudar a aba ativa na tela
+  function selectTab(index) {
+    currentActiveTabIdx = index;
+    
+    const allTabBtns = popup.querySelectorAll('.local-ia-tab-button');
+    allTabBtns.forEach(btn => {
+      const idx = parseInt(btn.getAttribute('data-tab-idx'));
+      if (idx === index) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    
+    const allTabContents = popup.querySelectorAll('.local-ia-tab-content');
+    allTabContents.forEach(content => {
+      const idx = parseInt(content.getAttribute('data-tab-idx'));
+      if (idx === index) {
+        content.classList.add('active');
+      } else {
+        content.classList.remove('active');
+      }
+    });
+    
+    const copyBtn = popup.querySelector('.local-ia-popup-copy-btn');
+    if (copyBtn) {
+      if (tabContentsMap[index]) {
+        copyBtn.style.display = 'block';
+        copyBtn.textContent = (index === Object.keys(tabContentsMap).length - 1 && Object.keys(tabContentsMap).length > 1) ? 'Copiar Tudo' : 'Copiar Parte';
+        copyBtn.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(tabContentsMap[index]);
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copiado!';
+            copyBtn.style.background = '#30d158';
+            setTimeout(() => {
+              copyBtn.textContent = originalText;
+              copyBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            }, 2000);
+          } catch (e) {
+            showToast('❌ Falha ao copiar.');
+          }
+        };
+      } else {
+        copyBtn.style.display = 'none';
+      }
+    }
+
+    const translateBtn = popup.querySelector('.local-ia-popup-translate-btn');
+    if (translateBtn) {
+      if (tabContentsMap[index]) {
+        translateBtn.style.display = 'block';
+        if (tabTranslatedFlags[index]) {
+          translateBtn.textContent = 'Ver Original 🇺🇸';
+          translateBtn.classList.remove('translating');
+        } else {
+          translateBtn.textContent = 'Traduzir 🌐';
+          translateBtn.classList.remove('translating');
+        }
+        translateBtn.onclick = () => {
+          executeLocalTranslation(index);
+        };
+      } else {
+        translateBtn.style.display = 'none';
+      }
+    }
+  }
+
+  // Função para traduzir o conteúdo de uma aba usando a API local do Chrome
+  async function executeLocalTranslation(index) {
+    const translateBtn = popup.querySelector('.local-ia-popup-translate-btn');
+    if (!translateBtn || !tabContentsMap[index]) return;
+    
+    // Se já estiver traduzido, voltar ao original
+    if (tabTranslatedFlags[index]) {
+      tabContentsMap[index] = tabContentsMapOriginal[index];
+      tabTranslatedFlags[index] = false;
+      
+      const tabContent = popup.querySelector(`.local-ia-tab-content[data-tab-idx="${index}"]`);
+      if (tabContent) {
+        const isConsolidado = index === Object.keys(tabContentsMapOriginal).length - 1 && Object.keys(tabContentsMapOriginal).length > 1;
+        tabContent.innerHTML = `
+          <div style="font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; color: #ffffff;">
+            ${videoTitle} - ${isConsolidado ? 'Resumo Geral Consolidado' : `Parte ${index + 1}`}
+          </div>
+          <div class="local-ia-content-markdown" style="font-size: 12.5px; text-align: left;">
+            ${renderMarkdown(tabContentsMap[index])}
+          </div>
+        `;
+      }
+      
+      translateBtn.textContent = 'Traduzir 🌐';
+      return;
+    }
+    
+    // Iniciar fluxo de tradução local
+    translateBtn.textContent = 'Traduzindo...';
+    translateBtn.classList.add('translating');
+    
+    const translateRequestId = 'trans_' + Math.random().toString(36).substring(2, 9);
+    
+    const translateResponseListener = (event) => {
+      if (event.detail && event.detail.requestId === translateRequestId) {
+        window.removeEventListener('yt-translate-response', translateResponseListener);
+        
+        const { result, error } = event.detail;
+        
+        if (error) {
+          showToast(`⚠️ IA Local Indisponível\n${error}`);
+          translateBtn.textContent = 'Traduzir 🌐';
+          translateBtn.classList.remove('translating');
+        } else if (result) {
+          tabContentsMap[index] = result;
+          tabTranslatedFlags[index] = true;
+          
+          if (currentActiveTabIdx === index) {
+            const tabContent = popup.querySelector(`.local-ia-tab-content[data-tab-idx="${index}"]`);
+            if (tabContent) {
+              const isConsolidado = index === Object.keys(tabContentsMapOriginal).length - 1 && Object.keys(tabContentsMapOriginal).length > 1;
+              tabContent.innerHTML = `
+                <div style="font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; color: #ffffff;">
+                  ${videoTitle} - ${isConsolidado ? 'Resumo Geral Consolidado' : `Parte ${index + 1}`} (Traduzido)
+                </div>
+                <div class="local-ia-content-markdown" style="font-size: 12.5px; text-align: left;">
+                  ${renderMarkdown(result)}
+                </div>
+              `;
+            }
+            translateBtn.textContent = 'Ver Original 🇺🇸';
+            translateBtn.classList.remove('translating');
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('yt-translate-response', translateResponseListener);
+    
+    window.dispatchEvent(new CustomEvent('yt-translate-request', {
+      detail: {
+        text: tabContentsMap[index],
+        sourceLanguage: 'en',
+        targetLanguage: 'pt',
+        requestId: translateRequestId
+      }
+    }));
+  }
+
+  // Ouvintes de eventos do Main World
+  function handleChunksCount(e) {
+    if (e.detail.requestId !== requestId) return;
+    const { totalChunks } = e.detail;
+    console.log(`[Local IA UI] Inicializando interface para ${totalChunks} partes.`);
+    
+    const tabsContainer = popup.querySelector('.local-ia-tabs-container');
+    const body = popup.querySelector('.local-ia-popup-body');
+    
+    if (tabsContainer && body) {
+      tabsContainer.style.display = 'flex';
+      tabsContainer.innerHTML = '';
+      body.innerHTML = ''; 
+      
+      // Criar abas para as partes
+      for (let i = 0; i < totalChunks; i++) {
+        const tabBtn = document.createElement('button');
+        tabBtn.className = 'local-ia-tab-button';
+        tabBtn.setAttribute('data-tab-idx', i);
+        tabBtn.innerHTML = `<span>Parte ${i + 1}</span> <span class="tab-status-icon">🔒</span>`;
+        tabsContainer.appendChild(tabBtn);
+        
+        const tabContent = document.createElement('div');
+        tabContent.className = 'local-ia-tab-content';
+        tabContent.setAttribute('data-tab-idx', i);
+        tabContent.innerHTML = `
+          <div class="local-ia-loading-container">
+            <div class="local-ia-spinner"></div>
+            <div class="local-ia-loading-text">Na fila de processamento...</div>
+          </div>
+        `;
+        body.appendChild(tabContent);
+      }
+      
+      // Criar a aba final de Resumo Geral se houver mais de 1 parte
+      if (totalChunks > 1) {
+        const consolidadoIdx = totalChunks;
+        
+        const tabBtn = document.createElement('button');
+        tabBtn.className = 'local-ia-tab-button';
+        tabBtn.setAttribute('data-tab-idx', consolidadoIdx);
+        tabBtn.innerHTML = `<span>Resumo Geral</span> <span class="tab-status-icon">🔒</span>`;
+        tabsContainer.appendChild(tabBtn);
+        
+        const tabContent = document.createElement('div');
+        tabContent.className = 'local-ia-tab-content';
+        tabContent.setAttribute('data-tab-idx', consolidadoIdx);
+        tabContent.innerHTML = `
+          <div class="local-ia-loading-container">
+            <div class="local-ia-spinner"></div>
+            <div class="local-ia-loading-text">Aguardando a conclusão de todas as partes...</div>
+          </div>
+        `;
+        body.appendChild(tabContent);
+      }
+    }
+  }
+
+  function handleProgress(e) {
+    if (e.detail.requestId !== requestId) return;
+    const { chunkIndex, text } = e.detail;
+    
+    const tabContent = popup.querySelector(`.local-ia-tab-content[data-tab-idx="${chunkIndex}"]`);
+    if (tabContent) {
+      const spinner = tabContent.querySelector('.local-ia-spinner');
+      const loadingText = tabContent.querySelector('.local-ia-loading-text');
+      
+      if (!spinner) {
+        tabContent.innerHTML = `
+          <div class="local-ia-loading-container">
+            <div class="local-ia-spinner"></div>
+            <div class="local-ia-loading-text">${text}</div>
+          </div>
+        `;
+      } else if (loadingText) {
+        loadingText.textContent = text;
+      }
+    }
+    
+    const tabBtn = popup.querySelector(`.local-ia-tab-button[data-tab-idx="${chunkIndex}"]`);
+    if (tabBtn && !tabBtn.classList.contains('unlocked')) {
+      tabBtn.className = 'local-ia-tab-button processing';
+      tabBtn.querySelector('.tab-status-icon').textContent = '⏳';
+    }
+    
+    const footerText = popup.querySelector('.local-ia-popup-footer span');
+    if (footerText) footerText.textContent = text;
+  }
+
+  function handleChunkReady(e) {
+    if (e.detail.requestId !== requestId) return;
+    const { chunkIndex, result } = e.detail;
+    
+    tabContentsMap[chunkIndex] = result;
+    tabContentsMapOriginal[chunkIndex] = result; // Salvar original para cache
+    
+    const tabBtn = popup.querySelector(`.local-ia-tab-button[data-tab-idx="${chunkIndex}"]`);
+    if (tabBtn) {
+      tabBtn.className = 'local-ia-tab-button unlocked';
+      tabBtn.querySelector('.tab-status-icon').textContent = '✓';
+      tabBtn.onclick = () => selectTab(chunkIndex);
+    }
+    
+    const tabContent = popup.querySelector(`.local-ia-tab-content[data-tab-idx="${chunkIndex}"]`);
+    if (tabContent) {
+      tabContent.innerHTML = `
+        <div style="font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; color: #ffffff;">
+          ${videoTitle} - Parte ${chunkIndex + 1}
+        </div>
+        <div class="local-ia-content-markdown" style="font-size: 12.5px; text-align: left;">
+          ${renderMarkdown(result)}
+        </div>
+      `;
+    }
+    
+    if (chunkIndex === 0 && currentActiveTabIdx === null) {
+      selectTab(0);
+    }
+  }
+
+  window.addEventListener('yt-summarize-chunks-count', handleChunksCount);
+  window.addEventListener('yt-summarize-progress', handleProgress);
+  window.addEventListener('yt-summarize-chunk-ready', handleChunkReady);
+  
+  function cleanupListeners() {
+    window.removeEventListener('yt-summarize-chunks-count', handleChunksCount);
+    window.removeEventListener('yt-summarize-progress', handleProgress);
+    window.removeEventListener('yt-summarize-chunk-ready', handleChunkReady);
+  }
+  
+  popup.__cleanup = cleanupListeners;
+  
   const closeBtn = popup.querySelector('.local-ia-popup-close');
   closeBtn.addEventListener('click', () => {
+    cleanupListeners();
     popup.classList.remove('active');
     setTimeout(() => popup.remove(), 250);
   });
@@ -1163,27 +1451,87 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
       return;
     }
     
+    // Iniciar a escuta da resposta consolidada final
+    const finalResponseListener = (event) => {
+      if (event.detail && event.detail.requestId === requestId) {
+        window.removeEventListener('yt-summarize-response', finalResponseListener);
+        cleanupListeners();
+        
+        if (event.detail.error) {
+          showPopupError(popup, event.detail.error, videoId, presetKey, videoTitle);
+        } else {
+          const finalResult = event.detail.result;
+          const totalChunks = Object.keys(tabContentsMap).length;
+          
+          if (totalChunks > 1) {
+            const consolidadoIdx = totalChunks;
+            tabContentsMap[consolidadoIdx] = finalResult;
+            tabContentsMapOriginal[consolidadoIdx] = finalResult; // Salvar consolidado original
+            
+            const tabBtn = popup.querySelector(`.local-ia-tab-button[data-tab-idx="${consolidadoIdx}"]`);
+            if (tabBtn) {
+              tabBtn.className = 'local-ia-tab-button unlocked';
+              tabBtn.querySelector('.tab-status-icon').textContent = '✓';
+              tabBtn.onclick = () => selectTab(consolidadoIdx);
+            }
+            
+            const tabContent = popup.querySelector(`.local-ia-tab-content[data-tab-idx="${consolidadoIdx}"]`);
+            if (tabContent) {
+              tabContent.innerHTML = `
+                <div style="font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; color: #ffffff;">
+                  ${videoTitle} - Resumo Geral Consolidado
+                </div>
+                <div class="local-ia-content-markdown" style="font-size: 12.5px; text-align: left;">
+                  ${renderMarkdown(finalResult)}
+                </div>
+              `;
+            }
+          } else {
+            tabContentsMap[0] = finalResult;
+            tabContentsMapOriginal[0] = finalResult; // Salvar única parte original
+            selectTab(0);
+          }
+          
+          const footerText = popup.querySelector('.local-ia-popup-footer span');
+          if (footerText) footerText.innerHTML = "🤖 Sumarização progressiva via <strong>Gemini Nano</strong>";
+        }
+      }
+    };
+    window.addEventListener('yt-summarize-response', finalResponseListener);
+    
+    const options = {
+      type: 'tldr',
+      format: 'plain-text',
+      length: 'long'
+    };
+    
     const loadingText = popup.querySelector('.local-ia-loading-text');
-    if (loadingText) loadingText.textContent = "Habilitando IA Local (Gemini Nano)...";
+    if (loadingText) loadingText.textContent = "Calculando divisões da transcrição...";
     
     const preset = PROMPT_PRESETS[presetKey];
-    const fullPrompt = preset.prompt
-      .replace('[VIDEO_TITLE]', videoTitle)
-      .replace('[TRANSCRIPTION]', transcription);
     
-    // Executar sumarização local
-    const summary = await summarizeTextLocally(fullPrompt, (progressMsg) => {
-      if (loadingText) loadingText.textContent = progressMsg;
-    });
+    window.dispatchEvent(new CustomEvent('yt-summarize-request', {
+      detail: { 
+        text: transcription, 
+        presetPrompt: preset ? preset.prompt : null,
+        videoTitle: videoTitle,
+        options, 
+        requestId 
+      }
+    }));
     
-    showPopupResult(popup, summary, videoTitle);
   } catch (err) {
     console.error("[Local IA] Falha no processamento:", err);
+    cleanupListeners();
     showPopupError(popup, err.message, videoId, presetKey, videoTitle);
   }
 }
 
 function showPopupResult(popup, text, videoTitle) {
+  // Esta função é mantida para o fluxo clássico e fallback em nuvem
+  const tabsContainer = popup.querySelector('.local-ia-tabs-container');
+  if (tabsContainer) tabsContainer.style.display = 'none'; // Esconder abas se for resultado consolidado direto
+  
   const body = popup.querySelector('.local-ia-popup-body');
   if (body) {
     body.innerHTML = `
@@ -1198,19 +1546,20 @@ function showPopupResult(popup, text, videoTitle) {
   
   const footerText = popup.querySelector('.local-ia-popup-footer span');
   if (footerText) {
-    footerText.innerHTML = "🤖 Sumarizado via <strong>Gemini Nano</strong>";
+    footerText.innerHTML = "🤖 Sumarizado via <strong>Gemini na Nuvem</strong>";
   }
   
   const copyBtn = popup.querySelector('.local-ia-popup-copy-btn');
   if (copyBtn) {
     copyBtn.style.display = 'block';
+    copyBtn.textContent = 'Copiar Resumo';
     copyBtn.onclick = async () => {
       try {
         await navigator.clipboard.writeText(text);
         copyBtn.textContent = 'Copiado!';
         copyBtn.style.background = '#30d158';
         setTimeout(() => {
-          copyBtn.textContent = 'Copiar';
+          copyBtn.textContent = 'Copiar Resumo';
           copyBtn.style.background = 'rgba(255, 255, 255, 0.1)';
         }, 2000);
       } catch (e) {
@@ -1221,6 +1570,9 @@ function showPopupResult(popup, text, videoTitle) {
 }
 
 function showPopupError(popup, message, videoId, presetKey, videoTitle) {
+  const tabsContainer = popup.querySelector('.local-ia-tabs-container');
+  if (tabsContainer) tabsContainer.style.display = 'none';
+  
   const body = popup.querySelector('.local-ia-popup-body');
   if (body) {
     body.innerHTML = `
@@ -1472,25 +1824,25 @@ try {
       background-color: #0d8a6f;
     }
 
-    /* Estilos para o popup do Local IA (Glassmorphism) */
+    /* Estilos para o popup do Local IA (Glassmorphism Ampliado) */
     .youtube-local-ia-popup {
       position: absolute;
-      width: 340px;
-      max-height: 400px;
-      background: rgba(28, 28, 30, 0.95);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      color: #f5f5f7;
+      width: 480px;
+      max-height: 560px;
+      background: rgba(28, 28, 30, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      color: #e5e5ea;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       display: flex;
       flex-direction: column;
       z-index: 10000;
       opacity: 0;
-      transform: translateY(10px) scale(0.95);
-      transition: opacity 0.2s ease, transform 0.2s ease;
+      transform: translateY(12px) scale(0.96);
+      transition: opacity 0.25s ease, transform 0.25s ease;
       overflow: hidden;
     }
 
@@ -1503,27 +1855,27 @@ try {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 14px;
+      padding: 12px 16px;
       background: rgba(255, 255, 255, 0.03);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .local-ia-popup-header h4 {
       margin: 0;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       letter-spacing: 0.5px;
       color: #30d158;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
     .local-ia-popup-close {
       background: none;
       border: none;
       color: #8e8e93;
-      font-size: 18px;
+      font-size: 20px;
       cursor: pointer;
       padding: 0;
       line-height: 1;
@@ -1535,9 +1887,9 @@ try {
     }
 
     .local-ia-popup-body {
-      padding: 14px;
-      font-size: 13px;
-      line-height: 1.5;
+      padding: 16px;
+      font-size: 15px;
+      line-height: 1.65;
       overflow-y: auto;
       flex: 1;
       scrollbar-width: thin;
@@ -1561,10 +1913,10 @@ try {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 14px;
-      background: rgba(0, 0, 0, 0.2);
+      padding: 10px 16px;
+      background: rgba(0, 0, 0, 0.25);
       border-top: 1px solid rgba(255, 255, 255, 0.08);
-      font-size: 11px;
+      font-size: 12px;
       color: #8e8e93;
     }
 
@@ -1573,8 +1925,8 @@ try {
       border: none;
       border-radius: 4px;
       color: #ffffff;
-      padding: 4px 8px;
-      font-size: 11px;
+      padding: 5px 10px;
+      font-size: 12px;
       font-weight: 500;
       cursor: pointer;
       transition: background 0.2s;
@@ -1584,20 +1936,45 @@ try {
       background: rgba(255, 255, 255, 0.2);
     }
 
+    .local-ia-popup-translate-btn {
+      background: rgba(48, 209, 88, 0.15);
+      border: 1px solid rgba(48, 209, 88, 0.3);
+      border-radius: 4px;
+      color: #30d158;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+
+    .local-ia-popup-translate-btn:hover {
+      background: rgba(48, 209, 88, 0.25);
+      border-color: rgba(48, 209, 88, 0.5);
+      color: #ffffff;
+    }
+    
+    .local-ia-popup-translate-btn.translating {
+      background: rgba(255, 159, 10, 0.15);
+      border-color: rgba(255, 159, 10, 0.3);
+      color: #ff9f0a;
+      cursor: wait;
+    }
+
     /* Estado de Loading do Popup */
     .local-ia-loading-container {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
+      padding: 50px 24px;
       text-align: center;
-      gap: 12px;
+      gap: 14px;
     }
 
     .local-ia-spinner {
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
       border: 3px solid rgba(255, 255, 255, 0.1);
       border-top-color: #30d158;
       border-radius: 50%;
@@ -1610,18 +1987,18 @@ try {
 
     /* Mensagem de Erro/Fallback */
     .local-ia-error-container {
-      padding: 10px 0;
+      padding: 12px 0;
       color: #ff453a;
     }
 
     .local-ia-fallback-btn {
-      margin-top: 12px;
+      margin-top: 14px;
       width: 100%;
       background: #4285f4;
       color: white;
       border: none;
       border-radius: 6px;
-      padding: 8px;
+      padding: 10px;
       font-weight: 600;
       cursor: pointer;
       transition: background 0.2s;
@@ -1629,6 +2006,76 @@ try {
 
     .local-ia-fallback-btn:hover {
       background: #3367d6;
+    }
+
+    /* Menu de Abas Progressivas */
+    .local-ia-tabs-container {
+      display: flex;
+      background: rgba(0, 0, 0, 0.25);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .local-ia-tabs-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .local-ia-tab-button {
+      flex: 1;
+      min-width: 90px;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #8e8e93;
+      font-size: 12.5px;
+      font-weight: 600;
+      text-align: center;
+      cursor: not-allowed;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .local-ia-tab-button.unlocked {
+      cursor: pointer;
+      color: #aeaeb2;
+    }
+
+    .local-ia-tab-button.unlocked:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .local-ia-tab-button.active {
+      color: #30d158;
+      border-bottom-color: #30d158;
+      background: rgba(48, 209, 88, 0.05);
+    }
+
+    .local-ia-tab-button.processing {
+      color: #ff9f0a;
+      cursor: wait;
+    }
+
+    /* Esconder abas que não estão sendo visualizadas */
+    .local-ia-tab-content {
+      display: none;
+      height: 100%;
+    }
+
+    .local-ia-tab-content.active {
+      display: block;
+      animation: local-ia-fade-in 0.25s ease;
+    }
+
+    @keyframes local-ia-fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .ai-summary-video-container-button.claude {
