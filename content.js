@@ -1318,17 +1318,36 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
       tabsContainer.innerHTML = '';
       body.innerHTML = ''; 
       
-      // Criar abas para as partes
+      // 1. Criar a primeira aba: Visão Geral (índice 0)
+      const visionTabBtn = document.createElement('button');
+      visionTabBtn.className = 'local-ia-tab-button';
+      visionTabBtn.setAttribute('data-tab-idx', 0);
+      visionTabBtn.innerHTML = `<span>Visão Geral</span> <span class="tab-status-icon">🔒</span>`;
+      tabsContainer.appendChild(visionTabBtn);
+      
+      const visionTabContent = document.createElement('div');
+      visionTabContent.className = 'local-ia-tab-content';
+      visionTabContent.setAttribute('data-tab-idx', 0);
+      visionTabContent.innerHTML = `
+        <div class="local-ia-loading-container">
+          <div class="local-ia-spinner"></div>
+          <div class="local-ia-loading-text">Gerando Visão Geral com toda a transcrição...</div>
+        </div>
+      `;
+      body.appendChild(visionTabContent);
+      
+      // 2. Criar abas para as partes parciais (índice 1 a totalChunks)
       for (let i = 0; i < totalChunks; i++) {
+        const partIdx = i + 1;
         const tabBtn = document.createElement('button');
         tabBtn.className = 'local-ia-tab-button';
-        tabBtn.setAttribute('data-tab-idx', i);
+        tabBtn.setAttribute('data-tab-idx', partIdx);
         tabBtn.innerHTML = `<span>Parte ${i + 1}</span> <span class="tab-status-icon">🔒</span>`;
         tabsContainer.appendChild(tabBtn);
         
         const tabContent = document.createElement('div');
         tabContent.className = 'local-ia-tab-content';
-        tabContent.setAttribute('data-tab-idx', i);
+        tabContent.setAttribute('data-tab-idx', partIdx);
         tabContent.innerHTML = `
           <div class="local-ia-loading-container">
             <div class="local-ia-spinner"></div>
@@ -1338,27 +1357,8 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
         body.appendChild(tabContent);
       }
       
-      // Criar a aba final de Resumo Geral se houver mais de 1 parte
-      if (totalChunks > 1) {
-        const consolidadoIdx = totalChunks;
-        
-        const tabBtn = document.createElement('button');
-        tabBtn.className = 'local-ia-tab-button';
-        tabBtn.setAttribute('data-tab-idx', consolidadoIdx);
-        tabBtn.innerHTML = `<span>Resumo Geral</span> <span class="tab-status-icon">🔒</span>`;
-        tabsContainer.appendChild(tabBtn);
-        
-        const tabContent = document.createElement('div');
-        tabContent.className = 'local-ia-tab-content';
-        tabContent.setAttribute('data-tab-idx', consolidadoIdx);
-        tabContent.innerHTML = `
-          <div class="local-ia-loading-container">
-            <div class="local-ia-spinner"></div>
-            <div class="local-ia-loading-text">Aguardando a conclusão de todas as partes...</div>
-          </div>
-        `;
-        body.appendChild(tabContent);
-      }
+      // Selecionar por padrão a primeira aba (Visão Geral)
+      selectTab(0);
     }
   }
 
@@ -1409,9 +1409,10 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
     
     const tabContent = popup.querySelector(`.local-ia-tab-content[data-tab-idx="${chunkIndex}"]`);
     if (tabContent) {
+      const isOverview = chunkIndex === 0;
       tabContent.innerHTML = `
         <div style="font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; color: #ffffff;">
-          ${videoTitle} - Parte ${chunkIndex + 1}
+          ${videoTitle} - ${isOverview ? 'Visão Geral' : `Parte ${chunkIndex}`}
         </div>
         <div class="local-ia-content-markdown" style="font-size: 12.5px; text-align: left;">
           ${renderMarkdown(result)}
@@ -1419,7 +1420,7 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
       `;
     }
     
-    if (chunkIndex === 0 && currentActiveTabIdx === null) {
+    if (chunkIndex === 0) {
       selectTab(0);
     }
   }
@@ -1460,38 +1461,6 @@ async function showLocalIAPopup(clickedButton, videoId, presetKey, videoTitle) {
         if (event.detail.error) {
           showPopupError(popup, event.detail.error, videoId, presetKey, videoTitle);
         } else {
-          const finalResult = event.detail.result;
-          const totalChunks = Object.keys(tabContentsMap).length;
-          
-          if (totalChunks > 1) {
-            const consolidadoIdx = totalChunks;
-            tabContentsMap[consolidadoIdx] = finalResult;
-            tabContentsMapOriginal[consolidadoIdx] = finalResult; // Salvar consolidado original
-            
-            const tabBtn = popup.querySelector(`.local-ia-tab-button[data-tab-idx="${consolidadoIdx}"]`);
-            if (tabBtn) {
-              tabBtn.className = 'local-ia-tab-button unlocked';
-              tabBtn.querySelector('.tab-status-icon').textContent = '✓';
-              tabBtn.onclick = () => selectTab(consolidadoIdx);
-            }
-            
-            const tabContent = popup.querySelector(`.local-ia-tab-content[data-tab-idx="${consolidadoIdx}"]`);
-            if (tabContent) {
-              tabContent.innerHTML = `
-                <div style="font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; color: #ffffff;">
-                  ${videoTitle} - Resumo Geral Consolidado
-                </div>
-                <div class="local-ia-content-markdown" style="font-size: 12.5px; text-align: left;">
-                  ${renderMarkdown(finalResult)}
-                </div>
-              `;
-            }
-          } else {
-            tabContentsMap[0] = finalResult;
-            tabContentsMapOriginal[0] = finalResult; // Salvar única parte original
-            selectTab(0);
-          }
-          
           const footerText = popup.querySelector('.local-ia-popup-footer span');
           if (footerText) footerText.innerHTML = "🤖 Sumarização progressiva via <strong>Gemini Nano</strong>";
         }

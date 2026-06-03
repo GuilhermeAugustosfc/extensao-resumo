@@ -622,29 +622,63 @@
             console.log(`[YT-Summarize] Texto dividido em ${totalChunks} parte(s).`);
             
             // 2. Comunicar ao Isolated World a contagem de partes para criar as abas
+            // A UI criará as abas: Visão Geral (idx 0) e depois as partes (idx 1 a totalChunks)
             window.dispatchEvent(new CustomEvent('yt-summarize-chunks-count', {
                 detail: { requestId, totalChunks }
             }));
             
-            const summaries = [];
+            // 3. PASSO 1: Resumir tudo de uma vez para gerar a Visão Geral (idx 0)
+            console.log(`[YT-Summarize] Gerando Visão Geral diretamente...`);
+            window.dispatchEvent(new CustomEvent('yt-summarize-progress', {
+                detail: { requestId, chunkIndex: 0, text: "Gerando Visão Geral localmente com toda a transcrição..." }
+            }));
             
-            // 3. Processar sequencialmente cada pedaço
-            for (let i = 0; i < totalChunks; i++) {
-                console.log(`[YT-Summarize] Criando instância para a parte ${i + 1}/${totalChunks}...`);
+            let finalConsolidatedResult = "";
+            try {
+                const summarizerInstance = await summarizerApi.create(options);
                 
-                // Disparar evento de progresso de inicialização
+                let mainPrompt = text;
+                if (presetPrompt) {
+                    mainPrompt = presetPrompt
+                        .replace('[VIDEO_TITLE]', videoTitle || '')
+                        .replace('[TRANSCRIPTION]', text);
+                }
+                
+                finalConsolidatedResult = await summarizerInstance.summarize(mainPrompt);
+                
+                if (summarizerInstance.destroy) {
+                    summarizerInstance.destroy();
+                }
+                
+                console.log(`[YT-Summarize] Visão Geral gerada com sucesso!`);
+                window.dispatchEvent(new CustomEvent('yt-summarize-chunk-ready', {
+                    detail: { requestId, chunkIndex: 0, result: finalConsolidatedResult }
+                }));
+            } catch (errOverview) {
+                console.error("[YT-Summarize] Erro ao gerar Visão Geral direta:", errOverview);
+                // Caso a IA local falhe no texto inteiro (limite de contexto), geramos uma mensagem amigável de erro na Visão Geral
+                finalConsolidatedResult = `⚠️ **IA Local Indisponível para o texto completo**\n\nOcorreu um erro ao processar o texto inteiro de uma só vez devido ao limite de capacidade de memória da IA local do navegador (Gemini Nano):\n*Erro: ${errOverview.message}*\n\nPor favor, leia os resumos detalhados das **Partes** abaixo, que estão sendo processadas de forma fracionada e segura!`;
+                window.dispatchEvent(new CustomEvent('yt-summarize-chunk-ready', {
+                    detail: { requestId, chunkIndex: 0, result: finalConsolidatedResult }
+                }));
+            }
+            
+            // 4. PASSO 2: Processar sequencialmente cada pedaço (idx 1 a totalChunks)
+            const summaries = [];
+            for (let i = 0; i < totalChunks; i++) {
+                const partIdx = i + 1;
+                console.log(`[YT-Summarize] Criando instância para a parte ${i + 1}/${totalChunks} (Aba idx ${partIdx})...`);
+                
                 window.dispatchEvent(new CustomEvent('yt-summarize-progress', {
-                    detail: { requestId, chunkIndex: i, text: `Inicializando IA para Parte ${i + 1} de ${totalChunks}...` }
+                    detail: { requestId, chunkIndex: partIdx, text: `Inicializando IA para Parte ${i + 1} de ${totalChunks}...` }
                 }));
                 
                 const summarizerInstance = await summarizerApi.create(options);
                 
-                console.log(`[YT-Summarize] Processando parte ${i + 1}/${totalChunks}...`);
                 window.dispatchEvent(new CustomEvent('yt-summarize-progress', {
-                    detail: { requestId, chunkIndex: i, text: `Resumindo Parte ${i + 1} de ${totalChunks} localmente...` }
+                    detail: { requestId, chunkIndex: partIdx, text: `Resumindo Parte ${i + 1} de ${totalChunks} localmente...` }
                 }));
                 
-                // Injetar o prompt do preset em cada pedaço para respeitar o idioma (pt-BR) e estilo!
                 let chunkPrompt = chunks[i];
                 if (presetPrompt) {
                     chunkPrompt = presetPrompt
@@ -660,46 +694,14 @@
                 }
                 
                 console.log(`[YT-Summarize] Parte ${i + 1} pronta.`);
-                // 4. Enviar a parte concluída em tempo real para a interface de leitura
                 window.dispatchEvent(new CustomEvent('yt-summarize-chunk-ready', {
-                    detail: { requestId, chunkIndex: i, result: chunkSummary }
+                    detail: { requestId, chunkIndex: partIdx, result: chunkSummary }
                 }));
             }
             
-            // 5. Fase de consolidação (Reduce)
-            let finalConsolidatedResult = "";
-            if (totalChunks === 1) {
-                // Se só tem 1 parte, o resumo final consolidado é o próprio resumo dela
-                finalConsolidatedResult = summaries[0];
-            } else {
-                console.log(`[YT-Summarize] Iniciando consolidação final de todos os resumos parciais...`);
-                window.dispatchEvent(new CustomEvent('yt-summarize-progress', {
-                    detail: { requestId, chunkIndex: totalChunks, text: `Consolidando resumo geral final...` }
-                }));
-                
-                const consolidatedText = summaries.map((s, idx) => `PARTE ${idx + 1}:\n${s}`).join("\n\n");
-                
-                // Criar instância final para consolidação
-                const summarizerInstance = await summarizerApi.create(options);
-                
-                let reductionPrompt = `Faça um resumo final unificado, coeso e estruturado em português do Brasil juntando todos os resumos parciais de vídeo abaixo. Apresente os principais tópicos em formato markdown enriquecido:\n\n${consolidatedText}`;
-                
-                if (presetPrompt) {
-                    reductionPrompt = presetPrompt
-                        .replace('[VIDEO_TITLE]', videoTitle || '')
-                        .replace('[TRANSCRIPTION]', consolidatedText);
-                }
-                
-                finalConsolidatedResult = await summarizerInstance.summarize(reductionPrompt);
-                
-                if (summarizerInstance.destroy) {
-                    summarizerInstance.destroy();
-                }
-            }
+            console.log('[YT-Summarize] Processamento de todas as partes concluído!');
             
-            console.log('[YT-Summarize] Sumarização progressiva concluída com sucesso!');
-            
-            // 6. Enviar o resultado consolidado e finalizar
+            // 5. Encerrar fluxo e notificar o isolated world
             window.dispatchEvent(new CustomEvent('yt-summarize-response', {
                 detail: { requestId, result: finalConsolidatedResult, error: null }
             }));
