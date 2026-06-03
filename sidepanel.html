@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Assistant – YouTube</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: #0d0d0d;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ══ Tab bar ══════════════════════════════════════ */
+    #tab-bar {
+      display: flex;
+      background: #111;
+      border-bottom: 1px solid #1e1e1e;
+      flex-shrink: 0;
+      height: 42px;
+    }
+
+    .sp-tab {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: #666;
+      font-size: 10.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      transition: color 0.18s, border-color 0.18s, background 0.18s;
+      letter-spacing: 0.01em;
+      padding: 0 4px;
+    }
+
+    .sp-tab:hover { color: #bbb; background: rgba(255,255,255,0.03); }
+
+    .sp-tab.active { color: #fff; }
+    #tab-gemini.active   { border-bottom-color: #4285f4; }
+    #tab-chatgpt.active  { border-bottom-color: #10a37f; }
+    #tab-deepseek.active { border-bottom-color: #4D6BFE; }
+    #tab-claude.active   { border-bottom-color: #D97757; }
+    #tab-metaai.active   { border-bottom-color: #0084FF; }
+
+    .sp-tab-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.18s;
+      flex-shrink: 0;
+    }
+    #tab-gemini   .sp-tab-dot { background: #4285f4; }
+    #tab-chatgpt  .sp-tab-dot { background: #10a37f; }
+    #tab-deepseek .sp-tab-dot { background: #4D6BFE; }
+    #tab-claude   .sp-tab-dot { background: #D97757; }
+    #tab-metaai   .sp-tab-dot { background: #0084FF; }
+    .sp-tab.active .sp-tab-dot { opacity: 1; }
+
+    /* ══ Header strip ════════════════════════════════ */
+    .sp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      height: 40px;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .sp-header-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ccc;
+      letter-spacing: 0.02em;
+    }
+
+    .sp-header-actions { display: flex; gap: 5px; }
+
+    .sp-action-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.09);
+      color: #999;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      transition: background 0.15s, color 0.15s;
+      padding: 0;
+    }
+    .sp-action-btn:hover  { background: rgba(255,255,255,0.12); color: #fff; }
+    .sp-action-btn:active { transform: scale(0.92); }
+
+    /* ══ Frames ════════════════════════════════════════ */
+    #frames-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sp-frame {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .sp-frame.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .sp-iframe-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sp-iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: #fff;
+    }
+
+    /* ══ Loading overlay ══════════════════════════════ */
+    .sp-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 5;
+      pointer-events: none;
+      transition: opacity 0.35s;
+    }
+
+    .sp-loading.hidden { opacity: 0; }
+
+    .sp-spinner {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.08);
+      animation: spin 0.85s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .sp-loading-text {
+      font-size: 12px;
+      color: #555;
+      letter-spacing: 0.03em;
+    }
+
+    /* ══ Per-frame themes ════════════════════════════ */
+    #frame-gemini   .sp-header  { background: #0d1520; }
+    #frame-gemini   .sp-loading { background: #0d1520; }
+    #frame-gemini   .sp-spinner { border-top-color: #4285f4; }
+
+    #frame-chatgpt  .sp-header  { background: #0c1a14; }
+    #frame-chatgpt  .sp-loading { background: #0c1a14; }
+    #frame-chatgpt  .sp-spinner { border-top-color: #10a37f; }
+
+    #frame-deepseek .sp-header  { background: #0a0f2e; }
+    #frame-deepseek .sp-loading { background: #0a0f2e; }
+    #frame-deepseek .sp-spinner { border-top-color: #4D6BFE; }
+
+    #frame-claude   .sp-header  { background: #1a0f0a; }
+    #frame-claude   .sp-loading { background: #1a0f0a; }
+    #frame-claude   .sp-spinner { border-top-color: #D97757; }
+
+    #frame-metaai   .sp-header  { background: #0a1520; }
+    #frame-metaai   .sp-loading { background: #0a1520; }
+    #frame-metaai   .sp-spinner { border-top-color: #0084FF; }
+  </style>
+</head>
+<body>
+
+  <!-- ════ Tab bar ════ -->
+  <div id="tab-bar">
+    <button class="sp-tab active" id="tab-gemini" data-frame="gemini">
+      <span class="sp-tab-dot"></span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="11" fill="#4285f4"/>
+        <path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9zm0 2c1.7 0 3.2.6 4.4 1.6L12 12V5zm-5.4 2.6L12 12H5c0-1.7.6-3.2 1.6-4.4zM12 19c-1.7 0-3.2-.6-4.4-1.6L12 12v7zm5.4-2.6L12 12h7c0 1.7-.6 3.2-1.6 4.4z" fill="white" opacity="0.9"/>
+      </svg>
+      Gemini
+    </button>
+    <button class="sp-tab" id="tab-chatgpt" data-frame="chatgpt">
+      <span class="sp-tab-dot"></span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073z" fill="#10a37f"/>
+      </svg>
+      ChatGPT
+    </button>
+    <button class="sp-tab" id="tab-deepseek" data-frame="deepseek">
+      <span class="sp-tab-dot"></span>
+      <svg width="13" height="13" viewBox="0 0 48 48" fill="none">
+        <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" font-size="26" font-weight="bold" font-family="Arial,sans-serif" fill="#4D6BFE">DS</text>
+      </svg>
+      DeepSeek
+    </button>
+    <button class="sp-tab" id="tab-claude" data-frame="claude">
+      <span class="sp-tab-dot"></span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="11" fill="#D97757"/>
+        <text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="11" font-weight="bold" font-family="Arial,sans-serif" fill="white">C</text>
+      </svg>
+      Claude
+    </button>
+    <button class="sp-tab" id="tab-metaai" data-frame="metaai">
+      <span class="sp-tab-dot"></span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="11" fill="#0084FF"/>
+        <text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="10" font-weight="bold" font-family="Arial,sans-serif" fill="white">M</text>
+      </svg>
+      Meta
+    </button>
+  </div>
+
+  <!-- ════ Frames ════ -->
+  <div id="frames-container">
+
+    <!-- Gemini -->
+    <div class="sp-frame active" id="frame-gemini">
+      <div class="sp-header">
+        <div class="sp-header-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#4285f4"/></svg>
+          gemini.google.com
+        </div>
+        <div class="sp-header-actions">
+          <button class="sp-action-btn" data-reload="gemini" title="Recarregar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="sp-action-btn" data-newtab="https://gemini.google.com/app" title="Abrir em nova aba">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sp-iframe-wrap">
+        <div class="sp-loading" id="gemini-loading">
+          <div class="sp-spinner"></div>
+          <span class="sp-loading-text">Carregando Gemini...</span>
+        </div>
+        <iframe class="sp-iframe" id="gemini-iframe" allow="clipboard-read; clipboard-write; storage-access; microphone; camera" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+
+    <!-- ChatGPT -->
+    <div class="sp-frame" id="frame-chatgpt">
+      <div class="sp-header">
+        <div class="sp-header-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#10a37f"/></svg>
+          chatgpt.com
+        </div>
+        <div class="sp-header-actions">
+          <button class="sp-action-btn" data-reload="chatgpt" title="Recarregar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="sp-action-btn" data-newtab="https://chatgpt.com/" title="Abrir em nova aba">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sp-iframe-wrap">
+        <div class="sp-loading" id="chatgpt-loading">
+          <div class="sp-spinner"></div>
+          <span class="sp-loading-text">Carregando ChatGPT...</span>
+        </div>
+        <iframe class="sp-iframe" id="chatgpt-iframe" allow="clipboard-read; clipboard-write; storage-access; microphone; camera" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+
+    <!-- DeepSeek -->
+    <div class="sp-frame" id="frame-deepseek">
+      <div class="sp-header">
+        <div class="sp-header-title">
+          <svg width="14" height="14" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="22" fill="#4D6BFE" fill-opacity="0.2"/><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" font-size="20" font-weight="bold" font-family="Arial,sans-serif" fill="#4D6BFE">DS</text></svg>
+          chat.deepseek.com
+        </div>
+        <div class="sp-header-actions">
+          <button class="sp-action-btn" data-reload="deepseek" title="Recarregar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="sp-action-btn" data-newtab="https://chat.deepseek.com/" title="Abrir em nova aba">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sp-iframe-wrap">
+        <div class="sp-loading" id="deepseek-loading">
+          <div class="sp-spinner"></div>
+          <span class="sp-loading-text">Carregando DeepSeek...</span>
+        </div>
+        <iframe class="sp-iframe" id="deepseek-iframe" allow="clipboard-read; clipboard-write; storage-access; microphone" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+
+    <!-- Claude -->
+    <div class="sp-frame" id="frame-claude">
+      <div class="sp-header">
+        <div class="sp-header-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#D97757"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="11" font-weight="bold" font-family="Arial,sans-serif" fill="white">C</text></svg>
+          claude.ai
+        </div>
+        <div class="sp-header-actions">
+          <button class="sp-action-btn" data-reload="claude" title="Recarregar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="sp-action-btn" data-newtab="https://claude.ai/new" title="Abrir em nova aba">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sp-iframe-wrap">
+        <div class="sp-loading" id="claude-loading">
+          <div class="sp-spinner"></div>
+          <span class="sp-loading-text">Carregando Claude...</span>
+        </div>
+        <iframe class="sp-iframe" id="claude-iframe" allow="clipboard-read; clipboard-write; storage-access; microphone; camera" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+
+    <!-- Meta AI -->
+    <div class="sp-frame" id="frame-metaai">
+      <div class="sp-header">
+        <div class="sp-header-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#0084FF"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="10" font-weight="bold" font-family="Arial,sans-serif" fill="white">M</text></svg>
+          meta.ai
+        </div>
+        <div class="sp-header-actions">
+          <button class="sp-action-btn" data-reload="metaai" title="Recarregar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="sp-action-btn" data-newtab="https://www.meta.ai/" title="Abrir em nova aba">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sp-iframe-wrap">
+        <div class="sp-loading" id="metaai-loading">
+          <div class="sp-spinner"></div>
+          <span class="sp-loading-text">Carregando Meta AI...</span>
+        </div>
+        <iframe class="sp-iframe" id="metaai-iframe" allow="clipboard-read; clipboard-write; storage-access; microphone; camera" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Script externo (MV3 bloqueia inline scripts via CSP) -->
+  <script src="sidepanel.js"></script>
+</body>
+</html>

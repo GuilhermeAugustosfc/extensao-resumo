@@ -27,7 +27,7 @@
       ]
     },
     "condition": {
-      "urlFilter": "claude.ai",
+      "urlFilter": "meta.ai",
       "resourceTypes": ["sub_frame"]
     }
   },
@@ -39,13 +39,78 @@
       "responseHeaders": [
         { "header": "X-Frame-Options", "operation": "remove" },
         { "header": "Content-Security-Policy", "operation": "remove" },
-        { "header": "Frame-Options", "operation": "remove" }
+        { "header": "Frame-Options", "operation": "remove" },
+        { "header": "X-Content-Type-Options", "operation": "remove" }
       ]
     },
     "condition": {
       "urlFilter": "chat.deepseek.com",
+      "resourceTypes": ["sub_frame", "main_frame"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        { "header": "X-Frame-Options", "operation": "remove" },
+        { "header": "Content-Security-Policy", "operation": "remove" },
+        { "header": "Frame-Options", "operation": "remove" },
+        { "header": "X-Content-Type-Options", "operation": "remove" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "chatgpt.com",
+      "resourceTypes": ["sub_frame", "main_frame"]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        { "header": "X-Frame-Options", "operation": "remove" },
+        { "header": "Content-Security-Policy", "operation": "remove" },
+        { "header": "Frame-Options", "operation": "remove" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "cdn.oaistatic.com",
+      "resourceTypes": ["sub_frame", "script", "xmlhttprequest"]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        { "header": "X-Frame-Options", "operation": "remove" },
+        { "header": "Content-Security-Policy", "operation": "remove" },
+        { "header": "Frame-Options", "operation": "remove" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "challenges.cloudflare.com",
       "resourceTypes": ["sub_frame"]
+    }
+  },
+  {
+    "id": 7,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        { "header": "X-Frame-Options", "operation": "remove" },
+        { "header": "Content-Security-Policy", "operation": "remove" },
+        { "header": "Frame-Options", "operation": "remove" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "claude.ai",
+      "resourceTypes": ["sub_frame", "main_frame"]
     }
   }
 ]
-

@@ -6,16 +6,16 @@
   "permissions": [
     "activeTab",
     "storage",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "sidePanel",
+    "tabs"
   ],
+
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "host_permissions": [
-    "*://*.youtube.com/*",
-    "*://*.googlevideo.com/*",
-    "*://*.deepseek.com/*",
-    "*://*.chatgpt.com/*",
-    "*://*.google.com/*",
-    "https://gemini.google.com/*",
-    "https://claude.ai/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
@@ -45,7 +45,7 @@
       "run_at": "document_start"
     },
     {
-      "matches": ["*://*.youtube.com/*", "*://*.google.com/*", "*://*.chatgpt.com/*", "https://claude.ai/*"],
+      "matches": ["<all_urls>"],
       "js": ["youtube-transcript.js", "content.js"]
     },
     {

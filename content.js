@@ -648,21 +648,22 @@ function processContainers(containers, thumbnailSelector) {
         <span>Local IA</span>
       `;
 
-      // Criar botão Claude
-      const claudeButton = document.createElement("div");
-      claudeButton.className = "ai-summary-video-container-button claude";
-      claudeButton.title = "Resumo com Claude";
-      claudeButton.innerHTML = `
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4C14.8 4 17.2 5.4 18.7 7.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      // Criar botão Copiar Prompt
+      const copyPromptButton = document.createElement("div");
+      copyPromptButton.className = "ai-summary-video-container-button copy-prompt";
+      copyPromptButton.title = "Copiar Prompt + Transcrição";
+      copyPromptButton.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
         </svg>
-        <span>Claude</span>
+        <span>Copiar</span>
       `;
 
       // Adicionar botões ao container
       buttonsContainer.appendChild(aiSummaryButton);
       buttonsContainer.appendChild(localIAButton);
-      buttonsContainer.appendChild(claudeButton);
+      buttonsContainer.appendChild(copyPromptButton);
 
       // Adicionar o container como filho direto do contêiner do vídeo
       container.appendChild(buttonsContainer);
@@ -707,13 +708,13 @@ function processContainers(containers, thumbnailSelector) {
         showPresetSelector(videoId, 'local-ia', thumbnailVideoTitle, localIAButton);
       });
 
-      // Evento para o botão Claude
-      claudeButton.addEventListener("click", async (e) => {
+      // Evento para o botão Copiar Prompt
+      copyPromptButton.addEventListener("click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         
-        // Mostrar popup de seleção de preset
-        showPresetSelector(videoId, 'claude', thumbnailVideoTitle, claudeButton);
+        // Mostrar popup de seleção de preset com a ação de cópia
+        showPresetSelector(videoId, 'copy', thumbnailVideoTitle, copyPromptButton);
       });
     } catch (error) {
     }
@@ -992,6 +993,30 @@ async function processWithPreset(videoId, presetKey, platform, videoTitle, click
     return;
   }
   
+  if (platform === 'copy') {
+    try {
+      const transcription = await getVideoTranscription(videoId);
+      if (!transcription) {
+        showToast("❌ Não foi possível obter a transcrição.");
+        return;
+      }
+      const resolvedTitle = (videoTitle && videoTitle.trim()) ? videoTitle.trim() : getCurrentVideoTitle();
+      const fullPrompt = preset.prompt
+        .replace('[VIDEO_TITLE]', resolvedTitle)
+        .replace('[TRANSCRIPTION]', transcription);
+        
+      if (typeof smartSubtitleSystem !== 'undefined') {
+        await smartSubtitleSystem.copyToClipboard(fullPrompt);
+      } else {
+        await navigator.clipboard.writeText(fullPrompt);
+      }
+      showToast("📋 Prompt + Transcrição copiados!");
+    } catch (error) {
+      showToast('❌ Erro ao copiar: ' + error.message);
+    }
+    return;
+  }
+  
   try {
     const transcription = await getVideoTranscription(videoId);
     if (!transcription) {
@@ -1027,13 +1052,17 @@ async function processWithPreset(videoId, presetKey, platform, videoTitle, click
       window.currentTranscription = fullPrompt;
     }
     
-    // Redirecionar para a plataforma escolhida
+    // Redirecionar para a plataforma escolhida no Side Panel
     if (platform === 'gemini') {
-      window.open('https://gemini.google.com/app', '_blank');
+      _openSidePanel('openGeminiSidePanel', 'https://gemini.google.com/app');
     } else if (platform === 'chatgpt') {
-      window.open('https://chatgpt.com/?model=auto', '_blank');
+      _openSidePanel('openChatGPTSidePanel', 'https://chatgpt.com/');
     } else if (platform === 'claude') {
-      window.open('https://claude.ai/new', '_blank');
+      _openSidePanel('openClaudeSidePanel', 'https://claude.ai/new');
+    } else if (platform === 'deepseek') {
+      _openSidePanel('openDeepSeekSidePanel', 'https://chat.deepseek.com/');
+    } else if (platform === 'metaai') {
+      _openSidePanel('openMetaAISidePanel', 'https://www.meta.ai/');
     }
   } catch (error) {
     showToast('❌ Erro: ' + error.message);
@@ -2047,11 +2076,11 @@ try {
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .ai-summary-video-container-button.claude {
+    .ai-summary-video-container-button.copy-prompt {
       background-color: #cc785c;
     }
 
-    .ai-summary-video-container-button.claude:hover {
+    .ai-summary-video-container-button.copy-prompt:hover {
       background-color: #b5643a !important;
     }
 
@@ -2525,34 +2554,32 @@ try {
       background: #4a4a4a;
     }
 
-    /* ===== BOTÃO FLUTUANTE DE PROMPT PERSONALIZADO ===== */
-    #yt-custom-prompt-fab {
+    /* ===== BOTÃO FLUTUANTE ÚNICO — SIDE PANEL ===== */
+    #yt-sidepanel-fab {
       position: fixed;
       bottom: 28px;
       right: 28px;
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #065fd4 0%, #4285f4 100%);
+      background: linear-gradient(135deg, #4285f4 0%, #10a37f 50%, #4D6BFE 100%);
       color: white;
       border: none;
       cursor: pointer;
       z-index: 2147483647;
-      box-shadow: 0 4px 16px rgba(6, 95, 212, 0.5);
+      box-shadow: 0 4px 18px rgba(66, 107, 254, 0.45);
       display: flex;
       align-items: center;
       justify-content: center;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
-      font-size: 22px;
-      line-height: 1;
     }
 
-    #yt-custom-prompt-fab:hover {
-      transform: scale(1.1) translateY(-2px);
-      box-shadow: 0 8px 24px rgba(6, 95, 212, 0.6);
+    #yt-sidepanel-fab:hover {
+      transform: scale(1.12) translateY(-2px);
+      box-shadow: 0 8px 28px rgba(66, 107, 254, 0.6);
     }
 
-    #yt-custom-prompt-fab:active {
+    #yt-sidepanel-fab:active {
       transform: scale(0.95);
     }
 
@@ -3085,50 +3112,27 @@ try {
 
 // Executar a função addSummaryIcons mais vezes para garantir que os elementos sejam capturados
 
-// ===== BOTÃO FLUTUANTE DE PROMPT PERSONALIZADO =====
+// ===== BOTÃO FLUTUANTE ÚNICO — SIDE PANEL =====
 
 /**
- * Cria e injeta o botão flutuante (FAB) de prompt personalizado.
- * Só é criado em páginas do YouTube.
+ * Cria e injeta o botão flutuante (FAB) único que abre o Chrome Side Panel.
+ * Substitui os 3 FABs anteriores (Gemini, ChatGPT, DeepSeek) por um único botão.
  */
-function createCustomPromptFAB() {
-  if (!isYouTubePage()) return;
-  if (document.getElementById('yt-custom-prompt-fab')) return;
+function createSidePanelFAB() {
+  if (document.getElementById('yt-sidepanel-fab')) return;
 
   const fab = document.createElement('button');
-  fab.id = 'yt-custom-prompt-fab';
-  fab.title = 'Enviar prompt personalizado para IA';
-  fab.setAttribute('aria-label', 'Abrir prompt personalizado');
+  fab.id = 'yt-sidepanel-fab';
+  fab.title = 'Abrir AI Assistant';
+  fab.setAttribute('aria-label', 'Abrir AI Assistant');
   fab.innerHTML = `
-    <span class="yt-fab-sphere">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Esfera base -->
-        <circle cx="14" cy="14" r="12" fill="url(#sphereGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
-        <!-- Meridianos verticais -->
-        <ellipse cx="14" cy="14" rx="5" ry="12" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-        <ellipse cx="14" cy="14" rx="10" ry="12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
-        <!-- Paralelos horizontais -->
-        <ellipse cx="14" cy="14" rx="12" ry="4" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>
-        <ellipse cx="14" cy="9" rx="10" ry="2.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
-        <ellipse cx="14" cy="19" rx="10" ry="2.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
-        <!-- Brilho -->
-        <ellipse cx="10" cy="9" rx="3" ry="2" fill="rgba(255,255,255,0.25)" transform="rotate(-20 10 9)"/>
-        <!-- Gradiente -->
-        <defs>
-          <radialGradient id="sphereGrad" cx="35%" cy="30%" r="65%">
-            <stop offset="0%" stop-color="rgba(255,255,255,0.4)"/>
-            <stop offset="40%" stop-color="rgba(66,133,244,0.6)"/>
-            <stop offset="100%" stop-color="rgba(4,40,120,0.9)"/>
-          </radialGradient>
-        </defs>
-      </svg>
-    </span>
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L14.09 8.26L20 9.27L15.55 13.97L16.91 20L12 16.9L7.09 20L8.45 13.97L4 9.27L9.91 8.26L12 2Z" fill="white" stroke="white" stroke-width="0.5" stroke-linejoin="round"/>
+    </svg>
   `;
 
   fab.addEventListener('click', () => {
-    if (typeof smartSubtitleSystem !== 'undefined') {
-      smartSubtitleSystem.openGeminiIframePanel(null);
-    }
+    _openSidePanel('openGeminiSidePanel', 'https://gemini.google.com/app');
   });
 
   document.body.appendChild(fab);
@@ -3161,7 +3165,9 @@ function openCustomPromptPopup() {
         <select id="yt-cp-platform-select" class="yt-cp-select">
           <option value="gemini" selected>🔵 Gemini</option>
           <option value="chatgpt">🟢 ChatGPT</option>
+          <option value="deepseek">🔵 DeepSeek</option>
           <option value="claude">🟠 Claude</option>
+          <option value="metaai">🔵 Meta AI</option>
         </select>
         <button id="yt-cp-send-btn" class="yt-cp-send">Enviar →</button>
       </div>
@@ -3260,19 +3266,20 @@ async function handleCustomPromptSend() {
       closeCustomPromptPopup();
       // Redirecionar para a plataforma escolhida
       if (platform === 'gemini') {
-        // Fluxo Integrado via Iframe
+        // Abrir no Side Panel
         if (typeof smartSubtitleSystem !== 'undefined') {
           smartSubtitleSystem.copyToClipboard(userPrompt);
-          smartSubtitleSystem.openGeminiIframePanel(null); // null pois não é vinculado a um vídeo específico para cache de legenda
-          smartSubtitleSystem.updateOverlayStatus("Prompt copiado! Cole no Gemini abaixo.", true);
-        } else {
-          // Fallback se o sistema de legendas não estiver disponível por algum motivo
-          window.open('https://gemini.google.com/app', '_blank');
+          smartSubtitleSystem.updateOverlayStatus("Prompt copiado! Cole no Gemini no painel lateral.", true);
         }
+        _openSidePanel('openGeminiSidePanel', 'https://gemini.google.com/app');
       } else if (platform === 'chatgpt') {
-        window.open('https://chatgpt.com/?model=auto', '_blank');
+        _openSidePanel('openChatGPTSidePanel', 'https://chatgpt.com/');
+      } else if (platform === 'deepseek') {
+        _openSidePanel('openDeepSeekSidePanel', 'https://chat.deepseek.com/');
       } else if (platform === 'claude') {
-        window.open('https://claude.ai/new', '_blank');
+        _openSidePanel('openClaudeSidePanel', 'https://claude.ai/new');
+      } else if (platform === 'metaai') {
+        _openSidePanel('openMetaAISidePanel', 'https://www.meta.ai/');
       }
     });
   } else {
@@ -3281,144 +3288,77 @@ async function handleCustomPromptSend() {
     if (platform === 'gemini') {
       if (typeof smartSubtitleSystem !== 'undefined') {
         smartSubtitleSystem.copyToClipboard(userPrompt);
-        smartSubtitleSystem.openGeminiIframePanel(null);
-      } else {
-        window.open('https://gemini.google.com/app', '_blank');
       }
+      _openSidePanel('openGeminiSidePanel', 'https://gemini.google.com/app');
     } else if (platform === 'chatgpt') {
-      window.open('https://chatgpt.com/?model=auto', '_blank');
+      _openSidePanel('openChatGPTSidePanel', 'https://chatgpt.com/');
+    } else if (platform === 'deepseek') {
+      _openSidePanel('openDeepSeekSidePanel', 'https://chat.deepseek.com/');
     } else if (platform === 'claude') {
-      window.open('https://claude.ai/new', '_blank');
+      _openSidePanel('openClaudeSidePanel', 'https://claude.ai/new');
+    } else if (platform === 'metaai') {
+      _openSidePanel('openMetaAISidePanel', 'https://www.meta.ai/');
     }
   }
 }
 
-// ===== BOTÃO FLUTUANTE CLAUDE =====
+// ===== BOTÃO FLUTUANTE CHATGPT =====
 
 /**
- * Cria e injeta o botão flutuante (FAB) do Claude.
+ * Cria e injeta o botão flutuante (FAB) do ChatGPT.
  * Fica posicionado acima do FAB do Gemini.
  */
-function createClaudeFAB() {
-  if (!isYouTubePage()) return;
-  if (document.getElementById('yt-claude-fab')) return;
+function createChatGPTFAB() {
+  if (document.getElementById('yt-chatgpt-fab')) return;
 
   const fab = document.createElement('button');
-  fab.id = 'yt-claude-fab';
-  fab.title = 'Abrir Claude AI';
-  fab.setAttribute('aria-label', 'Abrir Claude AI');
+  fab.id = 'yt-chatgpt-fab';
+  fab.title = 'Abrir ChatGPT';
+  fab.setAttribute('aria-label', 'Abrir ChatGPT');
   fab.innerHTML = `
-    <span class="yt-claude-fab-icon">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-1.907-.061L0 12.571l.085-.327 1.992-.388 2.365-.291 2.428-.266 1.16-.121-.899-.243L4.2 10.6l-2.222-.8-1.893-.735L0 8.856l.522-.909 2.122.04 1.614.245 2.043.375 1.613.39-.655-1.054-1.398-2.391-1.084-1.993-.552-1.219.881-.613 1.646 1.568 1.212 1.394 1.539 1.848.866 1.087.107-.582-.276-1.752-.375-2.394-.25-1.682-.012-1.125.855-.135 1.6 1.012 1.372.857 1.712 1.118 1.103.785.097-.048-.157-.485-.662-2.017-.448-1.608L11.366 0l1.008.012.973 2.142.557 1.935.49 1.828.146.662V6.8l.267-.388 1.134-1.848.935-1.394.923-1.12.649-.856.78.388-.036 1.706-.522 1.527-.862 1.588-.606 1.136.036.048.291-.194 1.575-1.015 1.87-1.123 1.697-.71 1.064-.401.58.725.267-.316 1.49-.985 1.697-1.185 2.01-.734 1.442-.17.62.267-.097.376-1.658 1.137-1.964.913-2.015.638-.662.134.158.448.649 1.49.546 1.81.316 1.997.097 1.188.085.025-.061.037-.765-.012-.776-.194-2.27-.146-1.5.024-.834.134.048.17.255.876 1.49 1.22 1.9.986 1.478.629 1.31.158-.012.096-.619-.28-.861-.949-1.733-.583-1.197.049-.085.218.097 1.648 1.197 2.15 1.36 1.709.983 1.067.504.133-.46-.606-.655-1.661-1.73-1.344-1.562.073-.121.194-.048 1.783.85 2.391 1.312 1.818 1.027 1.198.565.388.073.025-.073.024-.413-.655-.51-1.625-1.26-1.733-1.09.012-.085.146-.024 1.43.387 2.55.814 1.77.583 1.065.134.98-.231.085-.51-.474-.376-1.187-.85-1.49-.46-.255-.096-.036-.17.17-.024.994.096 1.783.218 1.466.243.28-.012.255-.085.219-.255-.558-.558-1.028-.47-.875-.316-.109-.206.109-.157 1.199-.097.899-.012.206-.133.182-.255-.34-.376-.85-.607-.472-.23L24 11.3l-.642-.691-1.905-1.745-1.709-1.417-1.296-.923-1.503-.996-.024-.17.851-.255 1.964.474 1.55.584 1.78.79 1.174.606-.024-.206-.996-1.406-1.02-1.381-.85-1.224-.218-.5.425-.34 1.66.619 1.612.961 1.684 1.209 1.55 1.187.048-.133-.461-1.417-.632-2.003-.485-1.782.024-.121.607.012.936 1.49.838 1.563.68 1.587.461 1.3.17.4.04-.04-.025-1.28.025-1.38.097-1.418.194-1.124.183-.46.62.194.376 1.393.17 1.587-.012 1.938v1.21l.182-.17.996-1.357.948-1.333 1.003-1.38.716-1.002.558.073.134.716-.474 1.587-.68 1.648-.777 1.647-.424.935.012.049.632-.34 1.515-.935 1.55-.96 1.43-.84.886-.413.327.547.012.291-.74.79-1.647.85-1.611.703-1.346.34-.96.097.012.157.183-.012.9-1.12.923-1.296.947-1.527.704-1.393.34-.924.364.036-.024.742-.632 1.479-.607 1.587-.413 1.527-.133 1.08v.27l.42-.012.292-.34.4-.668.534-.863.59-.911.669-.984.205.085.194.522-.097 1.09-.267 1.21-.34.985-.267.655.024.048.218-.097.79-.79.85-.984.813-1.176.716-1.308.413-1.224.097-.935-.073-.292-.364.194-.12.704.024 1.28.012 1.004.048.91-.05.693.025.158-.255.024-.376-.244-.485-.34-.46-.255-.352.025-.255.244.146.558.437 1.028.352.9.17.631-.01.34-.304.572-.34.254-.35.085-.619-.107-.98-.473-1.054-.754-.52-.607-.219-.52.048-.194.34-.13.766.302 1.09.619 1.05.57.46.25.133 0 .025-.036-.182-.46-.437-.668-.182-.401.048-.206.243-.109.474.061.79.461 1.162.45.607.13.376-.219.292-.8.097-.314-.12-.547-.449-.912-.619-.692-.402-.328.062-.243.285-.024.473.376.79.485.534.174.353-.012.316-.34.255-.825.097-.655-.182-.61-.535-.67-.68-.303-.62.062-.243.34-.036.34.304.729.461.547.255.255.073.17-.243.121-.655.097-1.575-.194-1.12-.388-.935-.509-.79-.498-.51.061-.181.437-.025.85.352.923.462.644.194.292.073.17-.267.085-.716.024-.984"/>
+    <span class="yt-chatgpt-fab-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="11" fill="#10a37f"/>
+        <path d="M12 7.7a4.3 4.3 0 0 0-3.3 1.5 4.3 4.3 0 0 0-.5 4.4L7.5 14a5 5 0 0 1 .5-5.1c1-1.4 2.6-2.2 4-2.2H12zm2.1.8a4.3 4.3 0 0 0-4 .5 4.3 4.3 0 0 0-1.8 4L7.2 13.5A5 5 0 0 1 9.2 9c1.3-.9 3-1.1 4.9-.5v.5zm1.5 2.8a4.3 4.3 0 0 0-2.3-3.3 4.3 4.3 0 0 0-4.3.4l-.8-1.2A5 5 0 0 1 11.5 7c1.8 0 3.3.9 4.1 2.5v1.3zm.6 3.6a4.3 4.3 0 0 0 .5-4.4 4.3 4.3 0 0 0-3.3-1.5H12V7.7a5 5 0 0 1 4 2.2c1 1.4 1 3.5 0 5.1l-.6-1.3zm-.8 2.6a4.3 4.3 0 0 0 1.8-4 4.3 4.3 0 0 0-4-.5l.5-1.1a5 5 0 0 1 4.9.5c1.3.9 2 2.6 2 4.4h-5.2zm-2.8 1.5a4.3 4.3 0 0 0 4.3-.4 4.3 4.3 0 0 0 2.3-3.3l1.1.5c-1 1.8-2.6 2.8-4.5 2.8a5 5 0 0 1-3.2-.6v-1z" fill="white"/>
       </svg>
     </span>
   `;
 
   fab.addEventListener('click', () => {
-    window.open('https://claude.ai/new', '_blank');
+    openChatGPTSidePanel();
   });
 
   document.body.appendChild(fab);
 }
 
 /**
- * Abre o painel lateral com iframe do Claude.
+ * Abre o ChatGPT no Chrome Side Panel nativo.
+ * Usa chrome.runtime.connect() para garantir que o service worker
+ * esteja acordado antes de enviar a mensagem (evita "Receiving end does not exist").
  */
-function openClaudeIframePanel() {
-  // Remover painel Claude se já existir (toggle)
-  const existing = document.getElementById('yt-claude-iframe-panel');
-  if (existing) {
-    existing.remove();
-    return;
-  }
-
-  const panel = document.createElement('div');
-  panel.id = 'yt-claude-iframe-panel';
-  panel.className = 'yt-claude-iframe-panel';
-
-  panel.innerHTML = `
-    <div class="yt-claude-panel-header">
-      <div class="yt-claude-panel-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="#cc785c" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-1.907-.061L0 12.571l.085-.327 1.992-.388 2.365-.291 2.428-.266 1.16-.121-.899-.243L4.2 10.6l-2.222-.8-1.893-.735L0 8.856l.522-.909 2.122.04 1.614.245 2.043.375 1.613.39-.655-1.054-1.398-2.391-1.084-1.993-.552-1.219.881-.613 1.646 1.568 1.212 1.394 1.539 1.848.866 1.087.107-.582-.276-1.752-.375-2.394-.25-1.682-.012-1.125.855-.135 1.6 1.012 1.372.857 1.712 1.118 1.103.785.097-.048-.157-.485-.662-2.017-.448-1.608L11.366 0l1.008.012.973 2.142.557 1.935.49 1.828.146.662V6.8l.267-.388 1.134-1.848.935-1.394.923-1.12.649-.856.78.388-.036 1.706-.522 1.527-.862 1.588-.606 1.136.036.048.291-.194 1.575-1.015 1.87-1.123 1.697-.71 1.064-.401.58.725.267-.316 1.49-.985 1.697-1.185 2.01-.734 1.442-.17.62.267-.097.376-1.658 1.137-1.964.913-2.015.638-.662.134.158.448.649 1.49.546 1.81.316 1.997.097 1.188.085.025-.061.037-.765-.012-.776-.194-2.27-.146-1.5.024-.834.134.048.17.255.876 1.49 1.22 1.9.986 1.478.629 1.31.158-.012.096-.619-.28-.861-.949-1.733-.583-1.197.049-.085.218.097 1.648 1.197 2.15 1.36 1.709.983 1.067.504.133-.46-.606-.655-1.661-1.73-1.344-1.562.073-.121.194-.048 1.783.85 2.391 1.312 1.818 1.027 1.198.565.388.073.025-.073.024-.413-.655-.51-1.625-1.26-1.733-1.09.012-.085.146-.024 1.43.387 2.55.814 1.77.583 1.065.134.98-.231.085-.51-.474-.376-1.187-.85-1.49-.46-.255-.096-.036-.17.17-.024.994.096 1.783.218 1.466.243.28-.012.255-.085.219-.255-.558-.558-1.028-.47-.875-.316-.109-.206.109-.157 1.199-.097.899-.012.206-.133.182-.255-.34-.376-.85-.607-.472-.23L24 11.3l-.642-.691-1.905-1.745-1.709-1.417-1.296-.923-1.503-.996-.024-.17.851-.255 1.964.474 1.55.584 1.78.79 1.174.606-.024-.206-.996-1.406-1.02-1.381-.85-1.224-.218-.5.425-.34 1.66.619 1.612.961 1.684 1.209 1.55 1.187.048-.133-.461-1.417-.632-2.003-.485-1.782.024-.121.607.012.936 1.49.838 1.563.68 1.587.461 1.3.17.4.04-.04-.025-1.28.025-1.38.097-1.418.194-1.124.183-.46.62.194.376 1.393.17 1.587-.012 1.938v1.21l.182-.17.996-1.357.948-1.333 1.003-1.38.716-1.002.558.073.134.716-.474 1.587-.68 1.648-.777 1.647-.424.935.012.049.632-.34 1.515-.935 1.55-.96 1.43-.84.886-.413.327.547.012.291-.74.79-1.647.85-1.611.703-1.346.34-.96.097.012.157.183-.012.9-1.12.923-1.296.947-1.527.704-1.393.34-.924.364.036-.024.742-.632 1.479-.607 1.587-.413 1.527-.133 1.08v.27l.42-.012.292-.34.4-.668.534-.863.59-.911.669-.984.205.085.194.522-.097 1.09-.267 1.21-.34.985-.267.655.024.048.218-.097.79-.79.85-.984.813-1.176.716-1.308.413-1.224.097-.935-.073-.292-.364.194-.12.704.024 1.28.012 1.004.048.91-.05.693.025.158-.255.024-.376-.244-.485-.34-.46-.255-.352.025-.255.244.146.558.437 1.028.352.9.17.631-.01.34-.304.572-.34.254-.35.085-.619-.107-.98-.473-1.054-.754-.52-.607-.219-.52.048-.194.34-.13.766.302 1.09.619 1.05.57.46.25.133 0 .025-.036-.182-.46-.437-.668-.182-.401.048-.206.243-.109.474.061.79.461 1.162.45.607.13.376-.219.292-.8.097-.314-.12-.547-.449-.912-.619-.692-.402-.328.062-.243.285-.024.473.376.79.485.534.174.353-.012.316-.34.255-.825.097-.655-.182-.61-.535-.67-.68-.303-.62.062-.243.34-.036.34.304.729.461.547.255.255.073.17-.243.121-.655.097-1.575-.194-1.12-.388-.935-.509-.79-.498-.51.061-.181.437-.025.85.352.923.462.644.194.292.073.17-.267.085-.716.024-.984"/>
-        </svg>
-        <span>Claude AI</span>
-      </div>
-      <div style="display:flex;gap:5px;">
-        <button id="yt-claude-panel-minimize" class="yt-claude-panel-btn" title="Minimizar">_</button>
-        <button id="yt-claude-panel-close" class="yt-claude-panel-btn" title="Fechar">×</button>
-      </div>
-    </div>
-    <iframe id="yt-claude-iframe" src="https://claude.ai/new" class="yt-claude-iframe" allow="clipboard-read; clipboard-write"></iframe>
-    <div class="yt-claude-resize-handle" id="yt-claude-resize-handle"></div>
-  `;
-
-  const container = document.querySelector('#content.ytd-app') || document.querySelector('ytd-app') || document.body;
-  container.appendChild(panel);
-
-  // Fechar
-  document.getElementById('yt-claude-panel-close').onclick = (e) => {
-    e.stopPropagation();
-    panel.remove();
-  };
-
-  // Minimizar
-  const minimizeBtn = document.getElementById('yt-claude-panel-minimize');
-  minimizeBtn.onclick = (e) => {
-    e.stopPropagation();
-    panel.classList.toggle('minimized');
-    minimizeBtn.textContent = panel.classList.contains('minimized') ? '▢' : '_';
-  };
-
-  // Redimensionamento
-  const handle = document.getElementById('yt-claude-resize-handle');
-  let isResizing = false;
-  let startX, startWidth;
-
-  handle.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    isResizing = true;
-    startX = e.clientX;
-    startWidth = parseInt(window.getComputedStyle(panel).width, 10);
-    panel.classList.add('resizing');
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  });
-
-  function onMouseMove(e) {
-    if (!isResizing) return;
-    const diff = startX - e.clientX;
-    const newWidth = Math.min(Math.max(startWidth + diff, 320), window.innerWidth * 0.7);
-    panel.style.width = newWidth + 'px';
-  }
-
-  function onMouseUp() {
-    isResizing = false;
-    panel.classList.remove('resizing');
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-  }
+function openChatGPTSidePanel() {
+  _openSidePanel('openChatGPTSidePanel', 'https://chatgpt.com/');
 }
 
-// Estilos do FAB Claude e painel iframe Claude
+
+// Estilos do FAB ChatGPT e painel iframe ChatGPT
 try {
-  const claudeStyles = document.createElement('style');
-  claudeStyles.textContent = `
-    /* ===== FAB CLAUDE ===== */
-    #yt-claude-fab {
+  const chatgptStyles = document.createElement('style');
+  chatgptStyles.textContent = `
+    /* ===== FAB CHATGPT ===== */
+    #yt-chatgpt-fab {
       position: fixed;
       bottom: 94px;
       right: 28px;
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #b5643a 0%, #cc785c 100%);
+      background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
       color: white;
       border: none;
       cursor: pointer;
       z-index: 2147483647;
-      box-shadow: 0 4px 16px rgba(181, 100, 58, 0.55);
+      box-shadow: 0 4px 16px rgba(16, 163, 127, 0.45);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -3427,76 +3367,76 @@ try {
       line-height: 1;
     }
 
-    #yt-claude-fab:hover {
+    #yt-chatgpt-fab:hover {
       transform: scale(1.1) translateY(-2px);
-      box-shadow: 0 8px 24px rgba(181, 100, 58, 0.7);
+      box-shadow: 0 8px 24px rgba(16, 163, 127, 0.6);
     }
 
-    #yt-claude-fab:active {
+    #yt-chatgpt-fab:active {
       transform: scale(0.95);
     }
 
-    .yt-claude-fab-icon {
+    .yt-chatgpt-fab-icon {
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    /* ===== PAINEL IFRAME CLAUDE ===== */
-    .yt-claude-iframe-panel {
+    /* ===== PAINEL IFRAME CHATGPT ===== */
+    .yt-chatgpt-iframe-panel {
       position: fixed;
       top: 20px;
       right: 20px;
       width: 550px;
       height: 85vh;
       background: #1e1e1e;
-      border: 1px solid #4a3020;
+      border: 1px solid #10a37f;
       border-radius: 16px;
       z-index: 2147483647;
       display: flex;
       flex-direction: column;
       box-shadow: 0 15px 50px rgba(0,0,0,0.8);
       overflow: hidden;
-      animation: claudePanelSlideIn 0.3s ease-out;
+      animation: chatgptPanelSlideIn 0.3s ease-out;
     }
 
-    @keyframes claudePanelSlideIn {
+    @keyframes chatgptPanelSlideIn {
       from { transform: translateX(100%); opacity: 0; }
       to   { transform: translateX(0); opacity: 1; }
     }
 
-    .yt-claude-iframe-panel.minimized {
+    .yt-chatgpt-iframe-panel.minimized {
       height: 48px !important;
       width: 220px !important;
       overflow: hidden;
     }
 
-    .yt-claude-iframe-panel.minimized .yt-claude-iframe,
-    .yt-claude-iframe-panel.minimized .yt-claude-resize-handle {
+    .yt-chatgpt-iframe-panel.minimized .yt-chatgpt-iframe,
+    .yt-chatgpt-iframe-panel.minimized .yt-chatgpt-resize-handle {
       display: none;
     }
 
-    .yt-claude-panel-header {
+    .yt-chatgpt-panel-header {
       padding: 12px 16px;
-      background: #2a1f18;
+      background: #0d5c47;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #cc785c;
+      border-bottom: 2px solid #10a37f;
       flex-shrink: 0;
     }
 
-    .yt-claude-panel-title {
+    .yt-chatgpt-panel-title {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 14px;
       font-weight: 600;
-      color: #f0c8a0;
+      color: #e6fffa;
       font-family: 'Segoe UI', system-ui, sans-serif;
     }
 
-    .yt-claude-panel-btn {
+    .yt-chatgpt-panel-btn {
       background: none;
       border: none;
       color: #aaa;
@@ -3512,18 +3452,20 @@ try {
       padding: 0;
     }
 
-    .yt-claude-panel-btn:hover {
-      background: rgba(204, 120, 92, 0.2);
-      color: #cc785c;
+    .yt-chatgpt-panel-btn:hover {
+      background: rgba(16, 163, 127, 0.2);
+      color: #10a37f;
     }
 
-    .yt-claude-iframe {
+    .yt-chatgpt-iframe {
       flex: 1;
+      width: 100%;
+      height: 100%;
       border: none;
-      background: #fff;
+      background: transparent;
     }
 
-    .yt-claude-resize-handle {
+    .yt-chatgpt-resize-handle {
       position: absolute;
       top: 0;
       left: 0;
@@ -3535,42 +3477,33 @@ try {
       transition: background 0.2s;
     }
 
-    .yt-claude-resize-handle:hover {
-      background: rgba(204, 120, 92, 0.2);
+    .yt-chatgpt-resize-handle:hover {
+      background: rgba(16, 163, 127, 0.2);
     }
 
-    .yt-claude-iframe-panel.resizing {
+    .yt-chatgpt-iframe-panel.resizing {
       user-select: none;
     }
 
-    .yt-claude-iframe-panel.resizing .yt-claude-iframe {
+    .yt-chatgpt-iframe-panel.resizing .yt-chatgpt-iframe {
       pointer-events: none;
     }
   `;
-  document.head.appendChild(claudeStyles);
+  document.head.appendChild(chatgptStyles);
 } catch(e) {}
-
-// Inicializar o FAB Gemini na página do YouTube
-if (isYouTubePage()) {
-  if (document.body) {
-    createCustomPromptFAB();
-  } else {
-    document.addEventListener('DOMContentLoaded', createCustomPromptFAB);
-  }
-  document.addEventListener('yt-navigate-finish', () => {
-    setTimeout(createCustomPromptFAB, 500);
-  });
+function ensureFloatingButtons() {
+  createSidePanelFAB();
 }
 
-// Inicializar o FAB Claude na página do YouTube
+// Inicializar os botões flutuantes (FABs)
+if (document.body) {
+  ensureFloatingButtons();
+} else {
+  document.addEventListener('DOMContentLoaded', ensureFloatingButtons);
+}
 if (isYouTubePage()) {
-  if (document.body) {
-    createClaudeFAB();
-  } else {
-    document.addEventListener('DOMContentLoaded', createClaudeFAB);
-  }
   document.addEventListener('yt-navigate-finish', () => {
-    setTimeout(createClaudeFAB, 600);
+    setTimeout(ensureFloatingButtons, 500);
   });
 }
 
@@ -3578,10 +3511,9 @@ if (isYouTubePage()) {
 
 /**
  * Cria e injeta o botão flutuante (FAB) do DeepSeek.
- * Fica posicionado acima do FAB do Claude.
+ * Fica posicionado acima do FAB do ChatGPT.
  */
 function createDeepSeekFAB() {
-  if (!isYouTubePage()) return;
   if (document.getElementById('yt-deepseek-fab')) return;
 
   const fab = document.createElement('button');
@@ -3598,11 +3530,50 @@ function createDeepSeekFAB() {
   `;
 
   fab.addEventListener('click', () => {
-    openDeepSeekIframePanel();
+    openDeepSeekSidePanel();
   });
 
   document.body.appendChild(fab);
 }
+
+/**
+ * Abre o DeepSeek no Chrome Side Panel nativo (aba DeepSeek).
+ */
+function openDeepSeekSidePanel() {
+  _openSidePanel('openDeepSeekSidePanel', 'https://chat.deepseek.com/');
+}
+
+/**
+ * Função interna: acorda o service worker via port e envia a mensagem para abrir o side panel.
+ * Fallback: abre em nova aba se o side panel não estiver disponível.
+ */
+function _openSidePanel(action, fallbackUrl) {
+  // 1. Tentar acordar o service worker com um port (mais confiável que sendMessage)
+  let port;
+  try {
+    port = chrome.runtime.connect({ name: 'sidepanel-wakeup' });
+  } catch (e) {
+    // Se não conseguir conectar, abrir diretamente
+    window.open(fallbackUrl, '_blank');
+    return;
+  }
+
+  // 2. Após conectar (service worker acordado), enviar a mensagem real
+  // O port é fechado logo depois para não manter conexão desnecessária
+  port.disconnect();
+
+  // 3. Agora enviar a mensagem — o worker já está ativo
+  chrome.runtime.sendMessage({ action }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.warn('[YouTube Assistant] Side Panel falhou, abrindo em nova aba:', chrome.runtime.lastError.message);
+      window.open(fallbackUrl, '_blank');
+    } else if (response && !response.success) {
+      console.warn('[YouTube Assistant] Side Panel não disponível:', response.error);
+      window.open(fallbackUrl, '_blank');
+    }
+  });
+}
+
 
 /**
  * Abre o painel lateral com iframe do DeepSeek.
@@ -3932,18 +3903,6 @@ try {
   document.head.appendChild(deepseekStyles);
 } catch(e) {}
 
-// Inicializar o FAB DeepSeek na página do YouTube
-if (isYouTubePage()) {
-  if (document.body) {
-    createDeepSeekFAB();
-  } else {
-    document.addEventListener('DOMContentLoaded', createDeepSeekFAB);
-  }
-  document.addEventListener('yt-navigate-finish', () => {
-    setTimeout(createDeepSeekFAB, 700);
-  });
-}
-
 // Verificar se estamos no ChatGPT e processar integração
 if (window.location.hostname.includes('chatgpt.com')) {
   handleChatGPTIntegration();
@@ -3967,6 +3926,7 @@ const observer = new MutationObserver(() => {
   clearTimeout(observerTimeout);
   observerTimeout = setTimeout(() => {
     addSummaryIcons();
+    ensureFloatingButtons();
   }, 1000);
 });
 
@@ -3974,6 +3934,9 @@ observer.observe(document.body, {
   childList: true,
   subtree: true,
 });
+
+// Verificação de fallback periódica para garantir a visibilidade dos FABs
+setInterval(ensureFloatingButtons, 2000);
 
 // Verificações adicionais em intervalos diferentes
 setTimeout(() => {
@@ -4217,7 +4180,10 @@ class SmartSubtitleSystem {
 
   async checkVideoChange() {
     if (!window.location.href.includes('/watch?v=')) {
-      this.reset();
+      if (this.currentVideoId !== null) {
+        this.currentVideoId = null;
+        this.reset();
+      }
       return;
     }
 
