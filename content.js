@@ -874,19 +874,8 @@ Transcrição do vídeo:
   },
   estudo: {
     name: '📚 Notas de Estudo',
-    description: 'Formato para revisão',
-    prompt: `Crie NOTAS DE ESTUDO com linguagem simples do seguinte vídeo em português do Brasil.
-
-Formato de material de revisão:
-- Título e tema principal
-- Conceitos-chave: definições claras
-- Fatos importantes: dados, números, nomes
-- Fórmulas/processos (se aplicável)
-- Exemplos práticos
-- Perguntas para revisão (3-5)
-- Resumo em bullet points
-
-Use markdown com formatação clara para facilitar revisão rápida.
+    description: 'Resumo em um ou dois parágrafos em Português',
+    prompt: `Resuma o conteudo em Portugues do Brasil em apenas um ou dois paragrafo.
 
 Transcrição do vídeo:
 
@@ -3903,22 +3892,6 @@ try {
   document.head.appendChild(deepseekStyles);
 } catch(e) {}
 
-// Verificar se estamos no ChatGPT e processar integração
-if (window.location.hostname.includes('chatgpt.com')) {
-  handleChatGPTIntegration();
-  
-  // Observer para mudanças de URL no ChatGPT (SPA)
-  let lastUrl = location.href;
-  const chatGPTObserver = new MutationObserver(() => {
-    const url = location.href;
-    if (url !== lastUrl) {
-      lastUrl = url;
-      setTimeout(handleChatGPTIntegration, 1000);
-    }
-  });
-  
-  chatGPTObserver.observe(document, { subtree: true, childList: true });
-}
 
 // Configurar observador
 let observerTimeout;
@@ -3954,115 +3927,6 @@ addSummaryIcons();
 
 
 
-// Função para manipular diretamente o ChatGPT
-function handleChatGPTIntegration() {
-  // Verificar se estamos no ChatGPT
-  if (!window.location.hostname.includes('chatgpt.com')) {
-    return;
-  }
-  
-  
-  // Teste de acesso ao chrome.storage
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-  } else {
-    return;
-  }
-  
-  // Verificar se há transcrição salva no chrome.storage
-  chrome.storage.local.get(['youtubeTranscription'], (result) => {
-    if (chrome.runtime.lastError) {
-      return;
-    }
-    
-    const transcriptionData = result.youtubeTranscription;
-    
-    
-    if (!transcriptionData) {
-      return;
-    }
-    
-    
-    // Verificar se a transcrição é recente (últimos 5 minutos)
-    const now = Date.now();
-    const timeDiff = now - transcriptionData.timestamp;
-    const timeDiffMinutes = Math.floor(timeDiff / (1000 * 60));
-    
-    
-    if (timeDiff > 5 * 60 * 1000) {
-      chrome.storage.local.remove(['youtubeTranscription'], () => {
-      });
-      return;
-    }
-    
-    
-    // Função para encontrar e preencher o campo de texto
-    function fillChatGPTTextArea() {
-      
-      // Tentar diferentes seletores para o campo de texto
-      const selectors = [
-        '#prompt-textarea',
-        'textarea[name="prompt-textarea"]',
-        '.ProseMirror[contenteditable="true"]',
-        '[data-id="root"] textarea',
-        '[data-id="root"] [contenteditable="true"]',
-        'div[contenteditable="true"]',
-        'textarea'
-      ];
-      
-      let textArea = null;
-      
-      for (const selector of selectors) {
-        textArea = document.querySelector(selector);
-        if (textArea) {
-          break;
-        }
-      }
-      
-      if (!textArea) {
-        setTimeout(fillChatGPTTextArea, 1000);
-        return;
-      }
-      
-      
-      // Limpar o campo
-      if (textArea.tagName === 'TEXTAREA') {
-        textArea.value = '';
-        textArea.focus();
-      } else if (textArea.contentEditable === 'true') {
-        textArea.innerHTML = '';
-        textArea.focus();
-      }
-      
-      
-      // Inserir a transcrição
-      const prompt = `Resuma pra mim
-Transcrição do vídeo:
-
-${transcriptionData.text}
-
-Por favor, estruture o resumo de forma clara e organizada.`;
-      
-      if (textArea.tagName === 'TEXTAREA') {
-        textArea.value = prompt;
-        // Disparar evento de input
-        textArea.dispatchEvent(new Event('input', { bubbles: true }));
-      } else if (textArea.contentEditable === 'true') {
-        textArea.innerHTML = '<p>' + prompt.replace(/\n/g, '</p><p>') + '</p>';
-        // Disparar evento de input
-        textArea.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      
-      
-      // Limpar a transcrição do chrome.storage imediatamente após preencher
-      chrome.storage.local.remove(['youtubeTranscription'], () => {
-      });
-    }
-    
-    
-    // Aguardar um pouco para a página carregar completamente
-    setTimeout(fillChatGPTTextArea, 2000);
-  });
-}
 
 
 // =================================================================================================

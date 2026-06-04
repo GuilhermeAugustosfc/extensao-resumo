@@ -65,27 +65,39 @@
         }, interval);
     }
 
+    function processTranscription(data) {
+        console.log('[Gemini Inject] Processando transcrição:', {
+            videoId: data.videoId,
+            length: data.text.length,
+            timestamp: new Date(data.timestamp),
+            preset: data.preset || 'default'
+        });
+        
+        // O texto já vem com o prompt completo formatado
+        tryFillWithRetry(data.text);
+        
+        // Limpar a transcrição após usar
+        setTimeout(() => {
+            chrome.storage.local.remove(['youtubeTranscription']);
+        }, 5000);
+    }
+
     // Verificar se há transcrição salva
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        // 1. Verificação imediata no carregamento inicial
         chrome.storage.local.get(['youtubeTranscription'], (result) => {
             if (result.youtubeTranscription) {
-                const data = result.youtubeTranscription;
-                console.log('[Gemini Inject] Transcrição encontrada:', {
-                    videoId: data.videoId,
-                    length: data.text.length,
-                    timestamp: new Date(data.timestamp),
-                    preset: data.preset || 'default'
-                });
-                
-                // O texto já vem com o prompt completo formatado
-                tryFillWithRetry(data.text);
-                
-                // Limpar a transcrição após usar
-                setTimeout(() => {
-                    chrome.storage.local.remove(['youtubeTranscription']);
-                }, 5000);
+                processTranscription(result.youtubeTranscription);
             } else {
-                console.log('[Gemini Inject] Nenhuma transcrição encontrada');
+                console.log('[Gemini Inject] Nenhuma transcrição encontrada no carregamento inicial');
+            }
+        });
+
+        // 2. Escutar por atualizações futuras no storage (quando o painel/iframe já está carregado)
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+            if (areaName === 'local' && changes.youtubeTranscription && changes.youtubeTranscription.newValue) {
+                console.log('[Gemini Inject] Nova transcrição detectada via storage.onChanged');
+                processTranscription(changes.youtubeTranscription.newValue);
             }
         });
     }

@@ -74,29 +74,41 @@
         }, interval);
     }
 
+    function processTranscription(data) {
+        console.log('[Claude Inject] Processando transcrição:', {
+            videoId: data.videoId,
+            length: data.text.length,
+            timestamp: new Date(data.timestamp),
+            preset: data.preset || 'default'
+        });
+
+        // Aguardar um pouco para o Claude carregar e tentar preencher
+        setTimeout(() => {
+            tryFillWithRetry(data.text);
+        }, 1500);
+
+        // Limpar a transcrição após usar
+        setTimeout(() => {
+            chrome.storage.local.remove(['youtubeTranscription']);
+        }, 8000);
+    }
+
     // Verificar se há transcrição salva no chrome.storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        // 1. Verificação imediata no carregamento inicial
         chrome.storage.local.get(['youtubeTranscription'], (result) => {
             if (result.youtubeTranscription) {
-                const data = result.youtubeTranscription;
-                console.log('[Claude Inject] Transcrição encontrada:', {
-                    videoId: data.videoId,
-                    length: data.text.length,
-                    timestamp: new Date(data.timestamp),
-                    preset: data.preset || 'default'
-                });
-
-                // Aguardar um pouco para o Claude carregar e tentar preencher
-                setTimeout(() => {
-                    tryFillWithRetry(data.text);
-                }, 1500);
-
-                // Limpar a transcrição após usar
-                setTimeout(() => {
-                    chrome.storage.local.remove(['youtubeTranscription']);
-                }, 8000);
+                processTranscription(result.youtubeTranscription);
             } else {
-                console.log('[Claude Inject] Nenhuma transcrição encontrada');
+                console.log('[Claude Inject] Nenhuma transcrição encontrada no carregamento inicial');
+            }
+        });
+
+        // 2. Escutar por atualizações futuras no storage (quando o painel/iframe já está carregado)
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+            if (areaName === 'local' && changes.youtubeTranscription && changes.youtubeTranscription.newValue) {
+                console.log('[Claude Inject] Nova transcrição detectada via storage.onChanged');
+                processTranscription(changes.youtubeTranscription.newValue);
             }
         });
     }

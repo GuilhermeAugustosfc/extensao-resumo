@@ -51,16 +51,24 @@
     {
       "matches": ["*://gemini.google.com/*"],
       "js": ["gemini-inject.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     },
     {
       "matches": ["https://claude.ai/*"],
       "js": ["claude-inject.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     },
     {
       "matches": ["https://chat.deepseek.com/*"],
       "js": ["deepseek-inject.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": ["chatgpt-inject.js"],
       "run_at": "document_idle",
       "all_frames": true
     }
