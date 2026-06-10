@@ -71,6 +71,12 @@
       "js": ["chatgpt-inject.js"],
       "run_at": "document_idle",
       "all_frames": true
+    },
+    {
+      "matches": ["*://www.meta.ai/*"],
+      "js": ["metaai-inject.js"],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "icons": {

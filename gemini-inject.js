@@ -47,6 +47,60 @@
         return false;
     }
 
+    // Função para clicar no botão de enviar do Gemini
+    function clickSendButton() {
+        console.log('[Gemini Inject] Tentando clicar no botão de enviar...');
+        
+        // Seletores do botão de enviar (incluindo o fornecido pelo usuário e genéricos)
+        const sendSelectors = [
+            'button[aria-label="Enviar mensagem"]',
+            'button.mat-mdc-icon-button[aria-label="Enviar mensagem"]',
+            'button.mdc-icon-button[aria-label="Enviar mensagem"]',
+            'button[jslog*="173899"]', 
+            'button:has(mat-icon[fonticon="arrow_upward"])',
+            'button:has(mat-icon[data-mat-icon-name="arrow_upward"])'
+        ];
+        
+        for (const selector of sendSelectors) {
+            try {
+                const btn = document.querySelector(selector);
+                if (btn) {
+                    // Verificar se o botão não está desabilitado
+                    if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+                        console.warn('[Gemini Inject] Botão de enviar encontrado, mas está desabilitado.');
+                        return false;
+                    }
+                    console.log('[Gemini Inject] Botão de enviar clicado:', selector);
+                    btn.click();
+                    return true;
+                }
+            } catch (e) {
+                console.error('[Gemini Inject] Erro ao testar seletor do botão de enviar:', selector, e);
+            }
+        }
+        
+        console.warn('[Gemini Inject] Botão de enviar não encontrado ou não clicável');
+        return false;
+    }
+
+    // Função para tentar clicar no botão de enviar com retry (para dar tempo do Angular habilitar o botão)
+    function tryClickSendButtonWithRetry(maxAttempts = 6, interval = 300) {
+        let attempts = 0;
+        
+        const intervalId = setInterval(() => {
+            attempts++;
+            console.log(`[Gemini Inject] Tentativa de clique no botão de enviar ${attempts}/${maxAttempts}`);
+            
+            if (clickSendButton()) {
+                clearInterval(intervalId);
+                console.log('[Gemini Inject] Botão de enviar clicado com sucesso!');
+            } else if (attempts >= maxAttempts) {
+                clearInterval(intervalId);
+                console.error('[Gemini Inject] Não foi possível clicar no botão de enviar após todas as tentativas.');
+            }
+        }, interval);
+    }
+
     // Função para tentar preencher com retry
     function tryFillWithRetry(promptText, maxAttempts = 10, interval = 1000) {
         let attempts = 0;
@@ -58,6 +112,12 @@
             if (fillGeminiTextarea(promptText)) {
                 clearInterval(intervalId);
                 console.log('[Gemini Inject] Sucesso!');
+                
+                // Tentar clicar no botão de enviar após o preenchimento bem sucedido
+                // Pequeno delay para o Angular atualizar o estado interno e habilitar o botão
+                setTimeout(() => {
+                    tryClickSendButtonWithRetry();
+                }, 400);
             } else if (attempts >= maxAttempts) {
                 clearInterval(intervalId);
                 console.error('[Gemini Inject] Falhou após todas as tentativas');

@@ -56,6 +56,58 @@
         return false;
     }
 
+    // Função para clicar no botão de enviar do Claude
+    function clickSendButton() {
+        console.log('[Claude Inject] Tentando clicar no botão de enviar...');
+        
+        // Seletores do botão de enviar
+        const sendSelectors = [
+            'button[aria-label="Send Message"]',
+            'button[aria-label="Enviar mensagem"]',
+            'button[data-testid="send-message-button"]',
+            'button.inline-flex.items-center.justify-center.rounded-lg[type="button"]'
+        ];
+        
+        for (const selector of sendSelectors) {
+            try {
+                const btn = document.querySelector(selector);
+                if (btn) {
+                    // Verificar se o botão não está desabilitado
+                    if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+                        console.warn('[Claude Inject] Botão de enviar encontrado, mas está desabilitado.');
+                        return false;
+                    }
+                    console.log('[Claude Inject] Botão de enviar clicado:', selector);
+                    btn.click();
+                    return true;
+                }
+            } catch (e) {
+                console.error('[Claude Inject] Erro ao testar seletor do botão de enviar:', selector, e);
+            }
+        }
+        
+        console.warn('[Claude Inject] Botão de enviar não encontrado ou não clicável');
+        return false;
+    }
+
+    // Função para tentar clicar no botão de enviar com retry (para dar tempo do React habilitar o botão)
+    function tryClickSendButtonWithRetry(maxAttempts = 6, interval = 300) {
+        let attempts = 0;
+        
+        const intervalId = setInterval(() => {
+            attempts++;
+            console.log(`[Claude Inject] Tentativa de clique no botão de enviar ${attempts}/${maxAttempts}`);
+            
+            if (clickSendButton()) {
+                clearInterval(intervalId);
+                console.log('[Claude Inject] Botão de enviar clicado com sucesso!');
+            } else if (attempts >= maxAttempts) {
+                clearInterval(intervalId);
+                console.error('[Claude Inject] Não foi possível clicar no botão de enviar após todas as tentativas.');
+            }
+        }, interval);
+    }
+
     // Função para tentar preencher com retry
     function tryFillWithRetry(promptText, maxAttempts = 15, interval = 1000) {
         let attempts = 0;
@@ -67,6 +119,12 @@
             if (fillClaudeInput(promptText)) {
                 clearInterval(intervalId);
                 console.log('[Claude Inject] Sucesso!');
+                
+                // Tentar clicar no botão de enviar após o preenchimento bem sucedido
+                // Pequeno delay para o React atualizar o estado interno e habilitar o botão
+                setTimeout(() => {
+                    tryClickSendButtonWithRetry();
+                }, 400);
             } else if (attempts >= maxAttempts) {
                 clearInterval(intervalId);
                 console.error('[Claude Inject] Falhou após todas as tentativas');

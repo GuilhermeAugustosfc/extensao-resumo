@@ -1,37 +1,34 @@
-// chatgpt-inject.js
-// Script para injetar a transcrição no ChatGPT
+// metaai-inject.js
+// Script para injetar a transcrição e enviar automaticamente no Meta AI
 
 (function() {
     'use strict';
 
-    console.log('[ChatGPT Inject] Script carregado no ChatGPT');
+    console.log('[Meta AI Inject] Script carregado no Meta AI');
 
-    // Função para encontrar e preencher o campo de texto do ChatGPT
-    function fillChatGPTTextArea(promptText) {
-        console.log('[ChatGPT Inject] Tentando preencher textarea...');
+    // Função para encontrar e preencher o campo de texto do Meta AI
+    function fillMetaAITextArea(promptText) {
+        console.log('[Meta AI Inject] Tentando preencher textarea...');
         
-        // Tentar diferentes seletores para o campo de texto
+        // Seletores comuns para o input do Meta AI
         const selectors = [
-            '#prompt-textarea',
-            'textarea[name="prompt-textarea"]',
-            '.ProseMirror[contenteditable="true"]',
-            '[data-id="root"] textarea',
-            '[data-id="root"] [contenteditable="true"]',
+            'textarea',
             'div[contenteditable="true"]',
-            'textarea'
+            '[role="textbox"]',
+            '[data-testid="composer-input"]'
         ];
         
         let textArea = null;
         for (const selector of selectors) {
             textArea = document.querySelector(selector);
             if (textArea) {
-                console.log('[ChatGPT Inject] Textarea encontrado:', selector);
+                console.log('[Meta AI Inject] Textarea encontrado:', selector);
                 break;
             }
         }
         
         if (!textArea) {
-            console.warn('[ChatGPT Inject] Textarea não encontrado');
+            console.warn('[Meta AI Inject] Textarea não encontrado');
             return false;
         }
         
@@ -51,10 +48,10 @@ Por favor, estruture o resumo de forma clara e organizada.`;
             // Disparar evento de input para notificar os frameworks internos (React)
             textArea.dispatchEvent(new Event('input', { bubbles: true }));
         } else if (textArea.contentEditable === 'true') {
-            // Limpar conteúdo anterior e inserir via execCommand ou textContent
+            // Limpar conteúdo anterior
             textArea.textContent = '';
             
-            // Inserir via execCommand para compatibilidade total com ProseMirror
+            // Inserir via execCommand para compatibilidade com ProseMirror/Lexical
             document.execCommand('selectAll', false, null);
             document.execCommand('delete', false, null);
             document.execCommand('insertText', false, prompt);
@@ -64,22 +61,20 @@ Por favor, estruture o resumo de forma clara e organizada.`;
             textArea.dispatchEvent(new InputEvent('input', { bubbles: true, data: prompt }));
         }
         
-        console.log('[ChatGPT Inject] Texto inserido com sucesso');
+        console.log('[Meta AI Inject] Texto inserido com sucesso');
         return true;
     }
 
-    // Função para clicar no botão de enviar do ChatGPT
+    // Função para clicar no botão de enviar do Meta AI
     function clickSendButton() {
-        console.log('[ChatGPT Inject] Tentando clicar no botão de enviar...');
+        console.log('[Meta AI Inject] Tentando clicar no botão de enviar...');
         
-        // Seletores do botão de enviar do ChatGPT
+        // Seletores do botão de enviar (incluindo o fornecido pelo usuário: data-testid="composer-send-button")
         const sendSelectors = [
-            'button[data-testid="send-button"]',
-            'button[aria-label="Enviar prompt"]',
-            'button[aria-label="Send prompt"]',
-            'button[aria-label="Enviar mensagem"]',
-            'button[aria-label="Send message"]',
-            'button.mb-1.5'
+            'button[data-testid="composer-send-button"]',
+            'button[aria-label="Enviar"]',
+            'button.enabled\\:active\\:scale-98', // classe específica
+            'button:has(svg)'
         ];
         
         for (const selector of sendSelectors) {
@@ -87,20 +82,20 @@ Por favor, estruture o resumo de forma clara e organizada.`;
                 const btn = document.querySelector(selector);
                 if (btn) {
                     // Verificar se o botão não está desabilitado
-                    if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
-                        console.warn('[ChatGPT Inject] Botão de enviar encontrado, mas está desabilitado.');
+                    if (btn.disabled || btn.getAttribute('aria-disabled') === 'true' || btn.classList.contains('disabled')) {
+                        console.warn('[Meta AI Inject] Botão de enviar encontrado, mas está desabilitado.');
                         return false;
                     }
-                    console.log('[ChatGPT Inject] Botão de enviar clicado:', selector);
+                    console.log('[Meta AI Inject] Botão de enviar clicado:', selector);
                     btn.click();
                     return true;
                 }
             } catch (e) {
-                console.error('[ChatGPT Inject] Erro ao testar seletor do botão de enviar:', selector, e);
+                console.error('[Meta AI Inject] Erro ao testar seletor do botão de enviar:', selector, e);
             }
         }
         
-        console.warn('[ChatGPT Inject] Botão de enviar não encontrado ou não clicável');
+        console.warn('[Meta AI Inject] Botão de enviar não encontrado ou não clicável');
         return false;
     }
 
@@ -110,14 +105,14 @@ Por favor, estruture o resumo de forma clara e organizada.`;
         
         const intervalId = setInterval(() => {
             attempts++;
-            console.log(`[ChatGPT Inject] Tentativa de clique no botão de enviar ${attempts}/${maxAttempts}`);
+            console.log(`[Meta AI Inject] Tentativa de clique no botão de enviar ${attempts}/${maxAttempts}`);
             
             if (clickSendButton()) {
                 clearInterval(intervalId);
-                console.log('[ChatGPT Inject] Botão de enviar clicado com sucesso!');
+                console.log('[Meta AI Inject] Botão de enviar clicado com sucesso!');
             } else if (attempts >= maxAttempts) {
                 clearInterval(intervalId);
-                console.error('[ChatGPT Inject] Não foi possível clicar no botão de enviar após todas as tentativas.');
+                console.error('[Meta AI Inject] Não foi possível clicar no botão de enviar após todas as tentativas.');
             }
         }, interval);
     }
@@ -128,11 +123,11 @@ Por favor, estruture o resumo de forma clara e organizada.`;
         
         const intervalId = setInterval(() => {
             attempts++;
-            console.log(`[ChatGPT Inject] Tentativa ${attempts}/${maxAttempts}`);
+            console.log(`[Meta AI Inject] Tentativa ${attempts}/${maxAttempts}`);
             
-            if (fillChatGPTTextArea(promptText)) {
+            if (fillMetaAITextArea(promptText)) {
                 clearInterval(intervalId);
-                console.log('[ChatGPT Inject] Sucesso!');
+                console.log('[Meta AI Inject] Sucesso!');
                 
                 // Tentar clicar no botão de enviar após o preenchimento bem sucedido
                 // Pequeno delay para o React atualizar o estado interno e habilitar o botão
@@ -141,13 +136,13 @@ Por favor, estruture o resumo de forma clara e organizada.`;
                 }, 400);
             } else if (attempts >= maxAttempts) {
                 clearInterval(intervalId);
-                console.error('[ChatGPT Inject] Falhou após todas as tentativas');
+                console.error('[Meta AI Inject] Falhou após todas as tentativas');
             }
         }, interval);
     }
 
     function processTranscription(data) {
-        console.log('[ChatGPT Inject] Processando transcrição:', {
+        console.log('[Meta AI Inject] Processando transcrição:', {
             videoId: data.videoId,
             length: data.text.length,
             timestamp: new Date(data.timestamp),
@@ -158,7 +153,7 @@ Por favor, estruture o resumo de forma clara e organizada.`;
         const now = Date.now();
         const timeDiff = now - data.timestamp;
         if (timeDiff > 5 * 60 * 1000) {
-            console.log('[ChatGPT Inject] Transcrição ignorada (mais antiga que 5 minutos)');
+            console.log('[Meta AI Inject] Transcrição ignorada (mais antiga que 5 minutos)');
             chrome.storage.local.remove(['youtubeTranscription']);
             return;
         }
@@ -181,14 +176,14 @@ Por favor, estruture o resumo de forma clara e organizada.`;
             if (result.youtubeTranscription) {
                 processTranscription(result.youtubeTranscription);
             } else {
-                console.log('[ChatGPT Inject] Nenhuma transcrição encontrada no carregamento inicial');
+                console.log('[Meta AI Inject] Nenhuma transcrição encontrada no carregamento inicial');
             }
         });
 
         // 2. Escutar por atualizações futuras no storage (quando o painel/iframe já está carregado)
         chrome.storage.onChanged.addListener((changes, areaName) => {
             if (areaName === 'local' && changes.youtubeTranscription && changes.youtubeTranscription.newValue) {
-                console.log('[ChatGPT Inject] Nova transcrição detectada via storage.onChanged');
+                console.log('[Meta AI Inject] Nova transcrição detectada via storage.onChanged');
                 processTranscription(changes.youtubeTranscription.newValue);
             }
         });
