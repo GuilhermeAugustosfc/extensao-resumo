@@ -77,6 +77,12 @@
       "js": ["metaai-inject.js"],
       "run_at": "document_idle",
       "all_frames": true
+    },
+    {
+      "matches": ["*://aistudio.google.com/*"],
+      "js": ["aistudio-inject.js"],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "icons": {

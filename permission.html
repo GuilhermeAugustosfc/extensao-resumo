@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Permissão de Microfone — YouTube Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #090514 0%, #130a2a 50%, #1e0f3f 100%);
+      color: #f3f4f6;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Esferas decorativas de fundo para profundidade */
+    .glow-sphere {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0) 70%);
+      filter: blur(40px);
+      z-index: 1;
+    }
+
+    .sphere-1 {
+      width: 400px;
+      height: 400px;
+      top: -100px;
+      right: -100px;
+    }
+
+    .sphere-2 {
+      width: 500px;
+      height: 500px;
+      bottom: -150px;
+      left: -150px;
+    }
+
+    .card {
+      position: relative;
+      z-index: 10;
+      width: 90%;
+      max-width: 460px;
+      padding: 40px 30px;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3), 0 0 40px rgba(139, 92, 246, 0.1);
+      text-align: center;
+      animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon-container {
+      width: 90px;
+      height: 90px;
+      margin: 0 auto 25px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.05) 100%);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a78bfa;
+      position: relative;
+    }
+
+    .icon-container::after {
+      content: '';
+      position: absolute;
+      inset: -5px;
+      border-radius: 50%;
+      border: 1px dashed rgba(139, 92, 246, 0.2);
+      animation: rotate 20s linear infinite;
+    }
+
+    @keyframes rotate {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .icon-container svg {
+      width: 42px;
+      height: 42px;
+      filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.06);
+      }
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #ffffff, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #9ca3af;
+      margin-bottom: 30px;
+      font-weight: 300;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 28px;
+      background: linear-gradient(90deg, #7c3aed, #a78bfa);
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(124, 58, 237, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      filter: brightness(1.1);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    /* Estado de sucesso */
+    .success-state {
+      display: none;
+    }
+
+    .success-state h1 {
+      background: linear-gradient(90deg, #34d399, #059669);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .success-state .icon-container {
+      background: radial-gradient(circle, rgba(52, 211, 153, 0.2) 0%, rgba(52, 211, 153, 0.05) 100%);
+      border-color: rgba(52, 211, 153, 0.3);
+      color: #34d399;
+    }
+
+    .success-state .icon-container::after {
+      border-color: rgba(52, 211, 153, 0.2);
+    }
+
+    .success-state svg {
+      filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.5));
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-sphere sphere-1"></div>
+  <div class="glow-sphere sphere-2"></div>
+
+  <!-- Estado de Requisição -->
+  <div class="card" id="request-card">
+    <div class="icon-container">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+      </svg>
+    </div>
+    <h1>Permissão de Microfone</h1>
+    <p>
+      Para conversar por voz em tempo real com o Gemini sobre o conteúdo do vídeo, o Chrome exige uma autorização de acesso ao seu microfone para a nossa extensão.
+    </p>
+    <button class="btn" id="grant-btn">
+      Autorizar Microfone
+    </button>
+  </div>
+
+  <!-- Estado de Sucesso -->
+  <div class="card success-state" id="success-card">
+    <div class="icon-container">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+    </div>
+    <h1>Acesso Permitido!</h1>
+    <p id="success-desc">
+      Obrigado! O acesso ao microfone foi configurado com sucesso. Esta aba será fechada automaticamente em instantes e você poderá usar a funcionalidade Live.
+    </p>
+  </div>
+
+  <script src="permission.js"></script>
+</body>
+</html>

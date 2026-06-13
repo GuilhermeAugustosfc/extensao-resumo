@@ -586,8 +586,8 @@ function processContainers(containers, thumbnailSelector) {
   containers.forEach((container, index) => {
     try {
       
-      // Verificar se já tem os botões
-      if (container.querySelector(".ai-summary-video-container-button")) {
+      // Verificar se já tem o select
+      if (container.querySelector(".ai-summary-select")) {
         return;
       }
 
@@ -626,44 +626,30 @@ function processContainers(containers, thumbnailSelector) {
       const buttonsContainer = document.createElement("div");
       buttonsContainer.className = "ai-summary-buttons-container";
 
-      // Criar botão Resumo AI para o contêiner do vídeo
-      const aiSummaryButton = document.createElement("div");
-      aiSummaryButton.className = "ai-summary-video-container-button";
-      aiSummaryButton.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/>
-        </svg>
-        <span>Resumo AI</span>
+      // Criar select único com todas as opções
+      const aiSelect = document.createElement("select");
+      aiSelect.className = "ai-summary-select";
+      aiSelect.innerHTML = `
+        <option value="" disabled selected>🤖 Enviar para IA</option>
+        <optgroup label="── Resumo ──">
+          <option value="gemini">✨ Gemini</option>
+          <option value="chatgpt">💬 ChatGPT</option>
+          <option value="claude">🟠 Claude</option>
+          <option value="deepseek">🔵 DeepSeek</option>
+          <option value="metaai">🔷 Meta AI</option>
+        </optgroup>
+        <optgroup label="── Voz ──">
+          <option value="live">🎙️ Gemini Live</option>
+          <option value="aistudio">🎤 AI Studio Live</option>
+        </optgroup>
+        <optgroup label="── Outros ──">
+          <option value="local-ia">🖥️ Local IA</option>
+          <option value="copy">📋 Copiar Prompt</option>
+        </optgroup>
       `;
 
-      // Criar botão Local IA
-      const localIAButton = document.createElement("div");
-      localIAButton.className = "ai-summary-video-container-button local-ia";
-      localIAButton.title = "Resumo com Local IA (Chrome)";
-      localIAButton.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12c0-2.4 1-4.6 2.6-6.2"/>
-          <polyline points="12 6 12 12 16 14"/>
-        </svg>
-        <span>Local IA</span>
-      `;
-
-      // Criar botão Copiar Prompt
-      const copyPromptButton = document.createElement("div");
-      copyPromptButton.className = "ai-summary-video-container-button copy-prompt";
-      copyPromptButton.title = "Copiar Prompt + Transcrição";
-      copyPromptButton.innerHTML = `
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-        <span>Copiar</span>
-      `;
-
-      // Adicionar botões ao container
-      buttonsContainer.appendChild(aiSummaryButton);
-      buttonsContainer.appendChild(localIAButton);
-      buttonsContainer.appendChild(copyPromptButton);
+      // Adicionar select ao container
+      buttonsContainer.appendChild(aiSelect);
 
       // Adicionar o container como filho direto do contêiner do vídeo
       container.appendChild(buttonsContainer);
@@ -690,31 +676,28 @@ function processContainers(containers, thumbnailSelector) {
         if (anyLink) thumbnailVideoTitle = anyLink.getAttribute('aria-label').trim();
       }
 
-      // Evento para o botão Resumo AI usando o ID do vídeo diretamente
-      aiSummaryButton.addEventListener("click", async (e) => {
+      // Evento do select: ao escolher uma opcao, disparar a acao correspondente
+      aiSelect.addEventListener("change", async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
-        // Mostrar popup de seleção de preset
-        showPresetSelector(videoId, 'gemini', thumbnailVideoTitle, aiSummaryButton);
+
+        const platform = aiSelect.value;
+        if (!platform) return;
+
+        // Resetar o select para o placeholder
+        aiSelect.value = "";
+
+        showPresetSelector(videoId, platform, thumbnailVideoTitle, aiSelect);
       });
 
-      // Evento para o botão Local IA
-      localIAButton.addEventListener("click", async (e) => {
-        e.preventDefault();
+      // Impedir que o click do select propague para o link do YouTube
+      aiSelect.addEventListener("click", (e) => {
         e.stopPropagation();
-        
-        // Mostrar popup de seleção de preset
-        showPresetSelector(videoId, 'local-ia', thumbnailVideoTitle, localIAButton);
       });
 
-      // Evento para o botão Copiar Prompt
-      copyPromptButton.addEventListener("click", async (e) => {
-        e.preventDefault();
+      // Impedir mousedown de propagar (evita navegacao ao abrir o select)
+      aiSelect.addEventListener("mousedown", (e) => {
         e.stopPropagation();
-        
-        // Mostrar popup de seleção de preset com a ação de cópia
-        showPresetSelector(videoId, 'copy', thumbnailVideoTitle, copyPromptButton);
       });
     } catch (error) {
     }
@@ -981,6 +964,76 @@ async function processWithPreset(videoId, presetKey, platform, videoTitle, click
     showLocalIAPopup(clickedButton, videoId, presetKey, (videoTitle && videoTitle.trim()) ? videoTitle.trim() : getCurrentVideoTitle());
     return;
   }
+
+  // Se for Gemini Live, obter transcrição e abrir no side panel aba Live
+  if (platform === 'live') {
+    try {
+      showToast('🎤 Obtendo transcrição para conversa...');
+      const transcription = await getVideoTranscription(videoId);
+      if (!transcription) {
+        showToast("❌ Não foi possível obter a transcrição.");
+        return;
+      }
+      const resolvedTitle = (videoTitle && videoTitle.trim()) ? videoTitle.trim() : getCurrentVideoTitle();
+      const fullPrompt = preset.prompt
+        .replace('[VIDEO_TITLE]', resolvedTitle)
+        .replace('[TRANSCRIPTION]', transcription);
+
+      // Salvar no chrome.storage com mode 'live'
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ 'youtubeTranscription': {
+          text: fullPrompt,
+          timestamp: Date.now(),
+          videoId: videoId,
+          preset: presetKey,
+          mode: 'live'
+        }}, () => {
+          console.log('[Live] Contexto salvo para Gemini Live');
+        });
+      }
+
+      // Abrir Side Panel na aba Live
+      _openSidePanel('openLiveSidePanel', 'https://gemini.google.com/app');
+    } catch (error) {
+      showToast('❌ Erro: ' + error.message);
+    }
+    return;
+  }
+
+  // Se for AI Studio Live, obter transcrição e abrir no side panel aba aistudio
+  if (platform === 'aistudio') {
+    try {
+      showToast('🎤 Obtendo transcrição para AI Studio Live...');
+      const transcription = await getVideoTranscription(videoId);
+      if (!transcription) {
+        showToast("❌ Não foi possível obter a transcrição.");
+        return;
+      }
+      const resolvedTitle = (videoTitle && videoTitle.trim()) ? videoTitle.trim() : getCurrentVideoTitle();
+      const fullPrompt = preset.prompt
+        .replace('[VIDEO_TITLE]', resolvedTitle)
+        .replace('[TRANSCRIPTION]', transcription);
+
+      // Salvar no chrome.storage com mode 'aistudio'
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ 'youtubeTranscription': {
+          text: fullPrompt,
+          timestamp: Date.now(),
+          videoId: videoId,
+          preset: presetKey,
+          mode: 'aistudio'
+        }}, () => {
+          console.log('[AI Studio] Contexto salvo para AI Studio Live');
+        });
+      }
+
+      // Abrir Side Panel na aba aistudio
+      _openSidePanel('openAIStudioSidePanel', 'https://aistudio.google.com/live');
+    } catch (error) {
+      showToast('❌ Erro: ' + error.message);
+    }
+    return;
+  }
   
   if (platform === 'copy') {
     try {
@@ -1052,6 +1105,8 @@ async function processWithPreset(videoId, presetKey, platform, videoTitle, click
       _openSidePanel('openDeepSeekSidePanel', 'https://chat.deepseek.com/');
     } else if (platform === 'metaai') {
       _openSidePanel('openMetaAISidePanel', 'https://www.meta.ai/');
+    } else if (platform === 'aistudio') {
+      _openSidePanel('openAIStudioSidePanel', 'https://aistudio.google.com/live');
     }
   } catch (error) {
     showToast('❌ Erro: ' + error.message);
@@ -1779,36 +1834,53 @@ try {
 
     .ai-summary-buttons-container {
       position: absolute;
-      bottom: -28px;
-      left: 10px;
-      display: flex;
-      gap: 8px;
+      bottom: -30px;
+      left: 6px;
       z-index: 9999;
     }
 
-    .ai-summary-video-container-button {
-      display: flex;
-      align-items: center;
-      padding: 6px 10px;
-      background-color: #4285f4;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: bold;
+    .ai-summary-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: rgba(15, 15, 15, 0.92);
+      backdrop-filter: blur(6px);
+      color: #e8e8e8;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 22px 4px 8px;
       cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      transition: transform 0.2s, background-color 0.2s;
-      z-index: 9999;
-      pointer-events: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+      outline: none;
+      transition: border-color 0.18s, background 0.18s;
+      max-width: 148px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 5px center;
     }
 
-    .ai-summary-video-container-button.local-ia {
-      background-color: #10a37f;
+    .ai-summary-select:hover {
+      border-color: rgba(255,255,255,0.35);
+      background-color: rgba(30, 30, 30, 0.97);
     }
 
-    .ai-summary-video-container-button.local-ia:hover {
-      background-color: #0d8a6f;
+    .ai-summary-select:focus {
+      border-color: #4285f4;
+      box-shadow: 0 0 0 2px rgba(66,133,244,0.3);
+    }
+
+    .ai-summary-select option {
+      background: #1a1a1a;
+      color: #e8e8e8;
+      font-size: 12px;
+    }
+
+    .ai-summary-select optgroup {
+      color: #888;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
     }
 
     /* Estilos para o popup do Local IA (Glassmorphism Ampliado) */
@@ -2071,6 +2143,14 @@ try {
 
     .ai-summary-video-container-button.copy-prompt:hover {
       background-color: #b5643a !important;
+    }
+
+    .ai-summary-video-container-button.live-talk {
+      background-color: #8B5CF6;
+    }
+
+    .ai-summary-video-container-button.live-talk:hover {
+      background-color: #7c3aed !important;
     }
 
     .ai-summary-video-container-button svg {

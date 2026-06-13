@@ -5,7 +5,9 @@ const URLS = {
   chatgpt:  'https://chatgpt.com/',
   deepseek: 'https://chat.deepseek.com/',
   claude:   'https://claude.ai/new',
-  metaai:   'https://www.meta.ai/'
+  metaai:   'https://www.meta.ai/',
+  live:     null,  // Aba nativa, sem iframe
+  aistudio: 'https://aistudio.google.com/live'
 };
 
 const iframes  = {
@@ -13,7 +15,8 @@ const iframes  = {
   chatgpt:  document.getElementById('chatgpt-iframe'),
   deepseek: document.getElementById('deepseek-iframe'),
   claude:   document.getElementById('claude-iframe'),
-  metaai:   document.getElementById('metaai-iframe')
+  metaai:   document.getElementById('metaai-iframe'),
+  aistudio: document.getElementById('aistudio-iframe')
 };
 
 const loadings = {
@@ -21,10 +24,11 @@ const loadings = {
   chatgpt:  document.getElementById('chatgpt-loading'),
   deepseek: document.getElementById('deepseek-loading'),
   claude:   document.getElementById('claude-loading'),
-  metaai:   document.getElementById('metaai-loading')
+  metaai:   document.getElementById('metaai-loading'),
+  aistudio: document.getElementById('aistudio-loading')
 };
 
-const loaded = { gemini: false, chatgpt: false, deepseek: false, claude: false, metaai: false };
+const loaded = { gemini: false, chatgpt: false, deepseek: false, claude: false, metaai: false, live: true, aistudio: false };
 let activeTab = 'gemini';
 
 // ── Loading helpers ──────────────────────────────────────────
@@ -36,6 +40,7 @@ function showLoading(key) { loadings[key].classList.remove('hidden'); }
 // perder o evento em páginas cacheadas.
 function loadFrame(key) {
   if (loaded[key]) return;
+  if (!URLS[key]) { loaded[key] = true; return; } // Aba nativa (live)
   loaded[key] = true;
 
   var iframe = iframes[key];
@@ -54,7 +59,7 @@ function loadFrame(key) {
 
 // ── Trocar aba ───────────────────────────────────────────────
 function switchTab(key) {
-  if (!URLS[key]) return;
+  if (!(key in URLS)) return;
   if (key === activeTab) {
     loadFrame(key);
     return;

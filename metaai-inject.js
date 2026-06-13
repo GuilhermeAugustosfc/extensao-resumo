@@ -174,6 +174,7 @@ Por favor, estruture o resumo de forma clara e organizada.`;
         // 1. Verificação imediata no carregamento inicial
         chrome.storage.local.get(['youtubeTranscription'], (result) => {
             if (result.youtubeTranscription) {
+                if (result.youtubeTranscription.mode === 'live') return;
                 processTranscription(result.youtubeTranscription);
             } else {
                 console.log('[Meta AI Inject] Nenhuma transcrição encontrada no carregamento inicial');
@@ -183,6 +184,7 @@ Por favor, estruture o resumo de forma clara e organizada.`;
         // 2. Escutar por atualizações futuras no storage (quando o painel/iframe já está carregado)
         chrome.storage.onChanged.addListener((changes, areaName) => {
             if (areaName === 'local' && changes.youtubeTranscription && changes.youtubeTranscription.newValue) {
+                if (changes.youtubeTranscription.newValue.mode === 'live') return;
                 console.log('[Meta AI Inject] Nova transcrição detectada via storage.onChanged');
                 processTranscription(changes.youtubeTranscription.newValue);
             }

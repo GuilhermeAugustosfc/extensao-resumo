@@ -19,7 +19,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   const tabId = sender.tab?.id;
 
-  if (request.action === 'openGeminiSidePanel' || request.action === 'openChatGPTSidePanel' || request.action === 'openDeepSeekSidePanel' || request.action === 'openClaudeSidePanel' || request.action === 'openMetaAISidePanel') {
+  if (
+    request.action === 'openGeminiSidePanel'   ||
+    request.action === 'openChatGPTSidePanel'  ||
+    request.action === 'openDeepSeekSidePanel' ||
+    request.action === 'openClaudeSidePanel'   ||
+    request.action === 'openMetaAISidePanel'   ||
+    request.action === 'openLiveSidePanel'     ||
+    request.action === 'openAIStudioSidePanel'
+  ) {
     if (!tabId) {
       sendResponse({ success: false, error: 'tabId não encontrado' });
       return true;
@@ -30,6 +38,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'openDeepSeekSidePanel') targetTab = 'deepseek';
     if (request.action === 'openClaudeSidePanel')   targetTab = 'claude';
     if (request.action === 'openMetaAISidePanel')   targetTab = 'metaai';
+    if (request.action === 'openLiveSidePanel')     targetTab = 'live';
+    if (request.action === 'openAIStudioSidePanel') targetTab = 'aistudio';
 
     // Abrir side panel IMEDIATAMENTE (sem await antes — preserva gesto do usuário)
     chrome.sidePanel.open({ tabId })
