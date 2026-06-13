@@ -11,8 +11,8 @@
   const OUTPUT_SAMPLE_RATE = 24000;  // Gemini retorna 24kHz
   const CHUNK_INTERVAL_MS = 250;     // Enviar chunks a cada 250ms
 
-  // API Key do projeto (mesma do content.js)
-  const API_KEY = 'AIzaSyCcQ18t2gKILVIH8NpIrW4S_1wV0G7FvBA';
+  // API Key do projeto (removida)
+  const API_KEY = '';
 
   // ── Estado global ───────────────────────────────────────────────────
   let ws = null;

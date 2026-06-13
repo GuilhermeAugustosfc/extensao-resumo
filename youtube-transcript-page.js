@@ -73,7 +73,7 @@
             const k = window.ytcfg.get('INNERTUBE_API_KEY');
             if (k) return k;
         }
-        return 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+        return '';
     }
 
     function getVisitorData() {

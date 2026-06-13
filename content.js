@@ -74,6 +74,7 @@ function checkThumbnails() {
 }
 
 // Configuração da API Gemini
+const GEMINI_API_KEY = '';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 // Função para fazer request para Gemini API

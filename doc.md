@@ -1,7 +1,7 @@
 endpoint comentarios youtube
 chave api no exemplo
 
-curl -G 'https://www.googleapis.com/youtube/v3/commentThreads' --data-urlencode 'part=snippet' --data-urlencode 'videoId=mtnw12Zy6EA' --data-urlencode 'order=relevance' --data-urlencode 'key=AIzaSyBTYDX0cjaj1OuCnpvQ9OUBKaLywqB-bbM'
+curl -G 'https://www.googleapis.com/youtube/v3/commentThreads' --data-urlencode 'part=snippet' --data-urlencode 'videoId=mtnw12Zy6EA' --data-urlencode 'order=relevance' --data-urlencode 'key=YOUR_API_KEY'
 
 
 
