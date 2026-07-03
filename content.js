@@ -4120,6 +4120,18 @@ class SmartSubtitleSystem {
     
     // Escutar eventos de navegação
     document.addEventListener('yt-navigate-finish', () => this.checkVideoChange());
+
+    // Escutar atalho Ctrl + D para acionar o Tutor Proativo manualmente
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && (e.key === 'd' || e.key === 'D' || e.code === 'KeyD')) {
+        if (this.proactiveTutorActive) {
+          e.preventDefault();
+          console.log('[ProactiveTutor] Ctrl+D detectado. Enviando atualização manual...');
+          this._sendProactiveTutorUpdate();
+          showToast('🧠 Enviando atualização manual para o AI Studio...');
+        }
+      }
+    });
   }
 
   async checkVideoChange() {
@@ -4168,7 +4180,240 @@ class SmartSubtitleSystem {
         #explain-moment-btn.loading { opacity: 0.6 !important; animation: sc-pulse 0.8s ease-in-out infinite; }
         #explain-moment-btn.copied { opacity: 1 !important; }
         #explain-moment-btn.copied path { fill: #fbbc04 !important; }
+        #proactive-tutor-btn.loading { opacity: 0.6 !important; animation: sc-pulse 0.8s ease-in-out infinite; }
+        #proactive-tutor-btn.active { opacity: 1 !important; }
+        #proactive-tutor-btn.active path, #proactive-tutor-btn.active circle { fill: #34a853 !important; fill-opacity: 1 !important; stroke: #34a853 !important; }
         @keyframes sc-pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+        /* ====== Tutor Popup ====== */
+        #tutor-popup-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 99998;
+          background: transparent;
+        }
+        #tutor-popup {
+          position: fixed;
+          z-index: 99999;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+          border: 1px solid rgba(52,168,83,0.45);
+          border-radius: 14px;
+          padding: 20px;
+          width: 280px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(52,168,83,0.15);
+          font-family: 'Google Sans', Roboto, Arial, sans-serif;
+          color: #e8eaf6;
+          animation: tutor-popup-in 0.2s ease;
+        }
+        @keyframes tutor-popup-in {
+          from { opacity: 0; transform: translateY(8px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        #tutor-popup .tp-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+        #tutor-popup .tp-title {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #34a853;
+        }
+        #tutor-popup .tp-close {
+          background: none;
+          border: none;
+          color: #9aa0a6;
+          font-size: 20px;
+          cursor: pointer;
+          line-height: 1;
+          padding: 0 2px;
+          transition: color 0.15s;
+        }
+        #tutor-popup .tp-close:hover { color: #e8eaf6; }
+        #tutor-popup .tp-countdown-label {
+          font-size: 11px;
+          color: #9aa0a6;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-bottom: 6px;
+        }
+        #tutor-popup .tp-countdown {
+          font-size: 36px;
+          font-weight: 700;
+          color: #34a853;
+          text-align: center;
+          letter-spacing: 2px;
+          margin-bottom: 4px;
+          font-variant-numeric: tabular-nums;
+        }
+        #tutor-popup .tp-countdown-bar-bg {
+          background: rgba(255,255,255,0.08);
+          border-radius: 4px;
+          height: 4px;
+          margin-bottom: 18px;
+          overflow: hidden;
+        }
+        #tutor-popup .tp-countdown-bar {
+          height: 4px;
+          border-radius: 4px;
+          background: linear-gradient(90deg, #34a853, #4caf50);
+          transition: width 0.9s linear;
+        }
+        #tutor-popup .tp-divider {
+          border: none;
+          border-top: 1px solid rgba(255,255,255,0.08);
+          margin: 0 0 14px;
+        }
+        #tutor-popup .tp-interval-label {
+          font-size: 11px;
+          color: #9aa0a6;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-bottom: 8px;
+        }
+        #tutor-popup .tp-interval-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          margin-bottom: 14px;
+        }
+        #tutor-popup .tp-interval-input {
+          flex: 1;
+          background: rgba(255,255,255,0.07);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 8px;
+          color: #e8eaf6;
+          font-size: 15px;
+          padding: 7px 10px;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+        #tutor-popup .tp-interval-input:focus {
+          border-color: #34a853;
+        }
+        #tutor-popup .tp-interval-unit {
+          font-size: 12px;
+          color: #9aa0a6;
+          white-space: nowrap;
+        }
+        #tutor-popup .tp-save-btn {
+          width: 100%;
+          padding: 9px;
+          border: none;
+          border-radius: 8px;
+          background: linear-gradient(90deg, #34a853, #2e7d32);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.2s, transform 0.1s;
+          margin-bottom: 8px;
+        }
+        #tutor-popup .tp-save-btn:hover { opacity: 0.88; transform: scale(1.02); }
+        #tutor-popup .tp-stop-btn {
+          width: 100%;
+          padding: 8px;
+          border: 1px solid rgba(234,67,53,0.4);
+          border-radius: 8px;
+          background: rgba(234,67,53,0.1);
+          color: #ef9a9a;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        #tutor-popup .tp-stop-btn:hover { background: rgba(234,67,53,0.22); }
+        #tutor-popup .tp-saved-msg {
+          text-align: center;
+          font-size: 12px;
+          color: #34a853;
+          height: 16px;
+          margin-top: 6px;
+          transition: opacity 0.3s;
+        }
+        #tutor-popup .tp-prompt-label {
+          font-size: 11px;
+          color: #9aa0a6;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-bottom: 6px;
+          margin-top: 14px;
+        }
+        #tutor-popup .tp-prompt-hint {
+          font-size: 10px;
+          color: rgba(154,160,166,0.7);
+          margin-bottom: 6px;
+          line-height: 1.4;
+        }
+        #tutor-popup .tp-prompt-textarea {
+          width: 100%;
+          box-sizing: border-box;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.13);
+          border-radius: 8px;
+          color: #e8eaf6;
+          font-size: 12px;
+          font-family: 'Google Sans', Roboto, Arial, sans-serif;
+          line-height: 1.5;
+          padding: 8px 10px;
+          resize: vertical;
+          outline: none;
+          min-height: 110px;
+          transition: border-color 0.2s;
+        }
+        #tutor-popup .tp-prompt-textarea:focus { border-color: #34a853; }
+        #tutor-popup .tp-prompt-save-btn {
+          width: 100%;
+          padding: 8px;
+          border: 1px solid rgba(52,168,83,0.4);
+          border-radius: 8px;
+          background: rgba(52,168,83,0.1);
+          color: #81c784;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.2s;
+          margin-top: 6px;
+        }
+        #tutor-popup .tp-prompt-save-btn:hover { background: rgba(52,168,83,0.22); }
+        #tutor-popup .tp-prompt-reset-btn {
+          width: 100%;
+          padding: 6px;
+          border: none;
+          border-radius: 8px;
+          background: transparent;
+          color: rgba(154,160,166,0.6);
+          font-size: 11px;
+          cursor: pointer;
+          margin-top: 4px;
+          transition: color 0.2s;
+        }
+        #tutor-popup .tp-prompt-reset-btn:hover { color: #9aa0a6; }
+        #tutor-popup .tp-header { cursor: grab; user-select: none; }
+        #tutor-popup .tp-header:active { cursor: grabbing; }
+        #tutor-popup .tp-send-now-btn {
+          width: 100%;
+          padding: 9px;
+          border: none;
+          border-radius: 8px;
+          background: linear-gradient(90deg, #1a73e8, #1557b0);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.2s, transform 0.1s;
+          margin-top: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        #tutor-popup .tp-send-now-btn:hover { opacity: 0.88; transform: scale(1.02); }
+        #tutor-popup .tp-send-now-btn:active { transform: scale(0.98); }
       `;
       document.head.appendChild(style);
     }
@@ -4238,8 +4483,38 @@ class SmartSubtitleSystem {
       </svg>
     `;
     explainBtn.onclick = () => this.explainCurrentMoment();
+
+    // --- Botão 5: Tutor Proativo ---
+    const tutorBtn = document.createElement('button');
+    tutorBtn.id = 'proactive-tutor-btn';
+    tutorBtn.className = 'ytp-button';
+    tutorBtn.setAttribute('title', 'Tutor Proativo');
+    tutorBtn.setAttribute('aria-label', 'Tutor Proativo');
+    tutorBtn.innerHTML = `
+      <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18 10 C18 10 14 10 14 14 C14 16 16 17 16 19 L20 19 C20 17 22 16 22 14 C22 10 18 10 18 10 Z" fill="none" stroke="white" stroke-width="1.8" stroke-opacity="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="16" y1="21" x2="20" y2="21" stroke="white" stroke-width="1.5" stroke-opacity="0.85" stroke-linecap="round"/>
+        <line x1="16.5" y1="23" x2="19.5" y2="23" stroke="white" stroke-width="1.5" stroke-opacity="0.85" stroke-linecap="round"/>
+        <line x1="18" y1="7" x2="18" y2="9" stroke="white" stroke-width="1.5" stroke-opacity="0.85" stroke-linecap="round"/>
+        <line x1="12" y1="10" x2="13.5" y2="11.5" stroke="white" stroke-width="1.5" stroke-opacity="0.85" stroke-linecap="round"/>
+        <line x1="24" y1="10" x2="22.5" y2="11.5" stroke="white" stroke-width="1.5" stroke-opacity="0.85" stroke-linecap="round"/>
+        <line x1="10" y1="14" x2="12" y2="14" stroke="white" stroke-width="1.5" stroke-opacity="0.85" stroke-linecap="round"/>
+        <line x1="24" y1="14" x2="26" y2="14" stroke="white" stroke-width="1.5" stroke-opacity="0.85" stroke-linecap="round"/>
+        <circle cx="28" cy="10" r="3" fill="none" stroke="white" stroke-width="1.2" stroke-opacity="0.7"/>
+        <line x1="28" y1="9" x2="28" y2="10.5" stroke="white" stroke-width="1" stroke-linecap="round" stroke-opacity="0.7"/>
+        <line x1="28" y1="10.5" x2="29.2" y2="10.5" stroke="white" stroke-width="1" stroke-linecap="round" stroke-opacity="0.7"/>
+      </svg>
+    `;
+    tutorBtn.onclick = () => {
+      if (this.proactiveTutorActive) {
+        this.openTutorPopup();
+      } else {
+        this.toggleProactiveTutor();
+      }
+    };
     
-    // Inserir os quatro botões antes do botão de configurações (gear)
+    // Inserir os cinco botões antes do botão de configurações (gear)
+    rightControls.prepend(tutorBtn);
     rightControls.prepend(explainBtn);
     rightControls.prepend(copyTsBtn);
     rightControls.prepend(copyBtn);
@@ -4248,6 +4523,7 @@ class SmartSubtitleSystem {
     this.copyTranscriptButton = copyBtn;
     this.copyTranscriptTsButton = copyTsBtn;
     this.explainMomentButton = explainBtn;
+    this.proactiveTutorButton = tutorBtn;
   }
 
   toggle() {
@@ -4302,6 +4578,7 @@ class SmartSubtitleSystem {
 
   reset() {
     this.stop();
+    this.stopProactiveTutor();
     // Remove botões antigos se existirem para recriar limpo
     const oldBtn = document.getElementById('smart-captions-btn');
     if (oldBtn) oldBtn.remove();
@@ -4311,10 +4588,13 @@ class SmartSubtitleSystem {
     if (oldCopyTsBtn) oldCopyTsBtn.remove();
     const oldExplainBtn = document.getElementById('explain-moment-btn');
     if (oldExplainBtn) oldExplainBtn.remove();
+    const oldTutorBtn = document.getElementById('proactive-tutor-btn');
+    if (oldTutorBtn) oldTutorBtn.remove();
     this.toggleButton = null;
     this.copyTranscriptButton = null;
     this.copyTranscriptTsButton = null;
     this.explainMomentButton = null;
+    this.proactiveTutorButton = null;
     // Nota: Cache é mantido por videoId, então não limpa aqui
     // Isso permite que se o usuário voltar ao vídeo, use o cache
   }
@@ -4328,6 +4608,7 @@ class SmartSubtitleSystem {
     this.transcriptionSegments = null;
     this.rewrittenSubtitles = null;
     if (this.toggleButton) this.toggleButton.classList.remove('active');
+    // Nota: NÃO para o tutor proativo no stop() pois ele funciona independentemente
   }
 
   removeGeminiPanel() {
@@ -4586,6 +4867,477 @@ ${fullTranscript}`;
       this.updateOverlayStatus('Erro ao buscar transcrição.', false, 3000);
       if (explainBtn) explainBtn.classList.remove('loading');
       showToast('❌ Erro ao buscar transcrição.');
+    }
+  }
+
+  // ==================== TUTOR PROATIVO ====================
+
+  // Botão 5: Tutor Proativo — envia explicações automáticas a cada 2 minutos via AI Studio Live
+  async toggleProactiveTutor() {
+    // Se já está ativo, parar
+    if (this.proactiveTutorActive) {
+      this.stopProactiveTutor();
+      showToast('⏹️ Tutor Proativo desativado.');
+      return;
+    }
+
+    const videoId = this.currentVideoId;
+    if (!videoId) {
+      showToast('⚠️ Nenhum vídeo detectado.');
+      return;
+    }
+
+    const video = document.querySelector('video');
+    if (!video) {
+      showToast('⚠️ Player de vídeo não encontrado.');
+      return;
+    }
+
+    const tutorBtn = document.getElementById('proactive-tutor-btn');
+    if (tutorBtn) tutorBtn.classList.add('loading');
+    this.createOverlay();
+    this.updateOverlayStatus('Preparando Tutor Proativo...', true);
+
+    try {
+      // 1. Buscar transcrição completa com timestamps
+      const segments = await getVideoTranscriptionWithTimestamps(videoId);
+
+      if (!segments || segments.length === 0) {
+        this.updateOverlayStatus('Transcrição não disponível para este vídeo.', false, 3000);
+        if (tutorBtn) tutorBtn.classList.remove('loading');
+        return;
+      }
+
+      // 2. Formatar transcrição completa com timestamps
+      const fullTranscript = segments.map(seg => {
+        const totalSec = Math.floor(seg.start);
+        const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+        const s = (totalSec % 60).toString().padStart(2, '0');
+        return `[${m}:${s}] ${seg.text}`;
+      }).join('\n');
+
+      // 3. System instruction otimizada para tutor proativo
+      const videoTitle = getCurrentVideoTitle();
+      const systemPrompt = `Você é um tutor proativo que assiste o vídeo junto com o usuário e explica o que está acontecendo.
+Responda SEMPRE em Português do Brasil.
+
+REGRAS CRÍTICAS:
+- SEMPRE comece com UMA ÚNICA FRASE resumindo o que está acontecendo no momento (ex: "O autor está explicando como funciona a recursividade.")
+- Depois dessa frase de resumo, aprofunde a explicação de forma objetiva e detalhista
+- Seja DIRETO — sem introduções, sem preâmbulos, sem se apresentar
+- Explique como se estivesse explicando para um amigo
+- Foque no que o autor está fazendo ou explicando naquele momento
+- Contextualize com o que já foi dito anteriormente no vídeo
+- Se for código, terminal ou tela, descreva o que está acontecendo tecnicamente
+- Não repita explicações que já deu antes
+- NUNCA faça perguntas no final da explicação. NÃO pergunte se quer continuar, aprofundar, ou se tem dúvidas. Apenas explique e encerre.
+
+=== VÍDEO: ${videoTitle} ===
+
+=== TRANSCRIÇÃO COMPLETA ===
+${fullTranscript}
+=== FIM DA TRANSCRIÇÃO ===
+
+O usuário vai te enviar periodicamente o trecho do momento atual do vídeo. Comece SEMPRE com uma frase-resumo do momento, depois explique detalhadamente. Nunca faça perguntas.`;
+
+      // 4. Salvar no chrome.storage com mode 'aistudio' para conectar ao AI Studio Live
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({
+          'youtubeTranscription': {
+            text: systemPrompt,
+            timestamp: Date.now(),
+            videoId: videoId,
+            preset: 'proactive-tutor',
+            mode: 'aistudio'
+          }
+        }, () => {
+          console.log('[ProactiveTutor] Contexto salvo para AI Studio Live');
+        });
+      }
+
+      // 5. Abrir Side Panel na aba AI Studio
+      _openSidePanel('openAIStudioSidePanel', 'https://aistudio.google.com/live');
+
+      // 6. Guardar segmentos para o loop
+      this._proactiveTutorSegments = segments;
+      this.proactiveTutorActive = true;
+      this._proactiveTutorIntervalMs = this._proactiveTutorIntervalMs || 20000; // padrão 20s
+      this._proactiveTutorNextSendAt = null;
+
+      // 7. Feedback visual
+      if (tutorBtn) {
+        tutorBtn.classList.remove('loading');
+        tutorBtn.classList.add('active');
+      }
+      const secLabel = Math.round(this._proactiveTutorIntervalMs / 1000);
+      this.updateOverlayStatus(`🧠 Tutor Proativo ativo! Explicações a cada ${secLabel}s.`, false, 5000);
+      showToast(`🧠 Tutor Proativo ativado! Próximo envio a cada ${secLabel}s.`);
+
+      // 8. Enviar primeira explicação após 10 segundos (tempo para AI Studio carregar e conectar)
+      this._proactiveTutorTimeout = setTimeout(() => {
+        this._sendProactiveTutorUpdate();
+
+        // 9. Iniciar loop com intervalo configurável
+        this._proactiveTutorNextSendAt = Date.now() + this._proactiveTutorIntervalMs;
+        this._proactiveTutorInterval = setInterval(() => {
+          this._sendProactiveTutorUpdate();
+          this._proactiveTutorNextSendAt = Date.now() + this._proactiveTutorIntervalMs;
+        }, this._proactiveTutorIntervalMs);
+      }, 10000);
+
+    } catch (error) {
+      console.error('[ProactiveTutor] Erro ao iniciar:', error);
+      this.updateOverlayStatus('Erro ao buscar transcrição.', false, 3000);
+      if (tutorBtn) tutorBtn.classList.remove('loading');
+      showToast('❌ Erro ao iniciar Tutor Proativo.');
+    }
+  }
+
+  stopProactiveTutor() {
+    this.proactiveTutorActive = false;
+    this.closeTutorPopup();
+
+    if (this._proactiveTutorInterval) {
+      clearInterval(this._proactiveTutorInterval);
+      this._proactiveTutorInterval = null;
+    }
+
+    if (this._proactiveTutorTimeout) {
+      clearTimeout(this._proactiveTutorTimeout);
+      this._proactiveTutorTimeout = null;
+    }
+
+    if (this._tutorPopupCountdownTimer) {
+      clearInterval(this._tutorPopupCountdownTimer);
+      this._tutorPopupCountdownTimer = null;
+    }
+
+    this._proactiveTutorSegments = null;
+    this._proactiveTutorNextSendAt = null;
+
+    const tutorBtn = document.getElementById('proactive-tutor-btn');
+    if (tutorBtn) {
+      tutorBtn.classList.remove('active', 'loading');
+    }
+
+    // Limpar a mensagem do storage
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.remove(['youtubeTranscription']);
+    }
+
+    console.log('[ProactiveTutor] Parado.');
+  }
+
+  openTutorPopup() {
+    // Fechar popup existente
+    this.closeTutorPopup();
+
+    const tutorBtn = document.getElementById('proactive-tutor-btn');
+    if (!tutorBtn) return;
+
+    // Posicionar popup acima do botão
+    const rect = tutorBtn.getBoundingClientRect();
+    const popupWidth = 280;
+    let left = rect.left + rect.width / 2 - popupWidth / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - popupWidth - 8));
+    const top = rect.top - 10; // será ajustado após render
+
+    // Overlay para fechar ao clicar fora
+    const overlay = document.createElement('div');
+    overlay.id = 'tutor-popup-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) this.closeTutorPopup(); };
+    document.body.appendChild(overlay);
+
+    const popup = document.createElement('div');
+    popup.id = 'tutor-popup';
+    popup.style.left = left + 'px';
+    popup.style.top = '0px'; // ajustado abaixo
+
+    const intervalSec = Math.round((this._proactiveTutorIntervalMs || 20000) / 1000);
+
+    popup.innerHTML = `
+      <div class="tp-header">
+        <div class="tp-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#34a853"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+          Tutor Proativo
+        </div>
+        <button class="tp-close" id="tp-close-btn" aria-label="Fechar">×</button>
+      </div>
+
+      <div class="tp-countdown-label">Próximo envio em</div>
+      <div class="tp-countdown" id="tp-countdown">--:--</div>
+      <div class="tp-countdown-bar-bg">
+        <div class="tp-countdown-bar" id="tp-countdown-bar" style="width:100%"></div>
+      </div>
+      <button class="tp-send-now-btn" id="tp-send-now-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        Enviar agora
+      </button>
+
+      <hr class="tp-divider">
+
+      <div class="tp-interval-label">Intervalo de envio</div>
+      <div class="tp-interval-row">
+        <input
+          class="tp-interval-input"
+          id="tp-interval-input"
+          type="number"
+          min="5"
+          max="3600"
+          value="${intervalSec}"
+          placeholder="segundos"
+        >
+        <span class="tp-interval-unit">segundos</span>
+      </div>
+      <button class="tp-save-btn" id="tp-save-btn">💾 Salvar intervalo</button>
+      <div class="tp-saved-msg" id="tp-saved-msg"></div>
+
+      <hr class="tp-divider">
+
+      <div class="tp-prompt-label">Prompt periódico</div>
+      <div class="tp-prompt-hint">Use <code style="color:#81c784;background:rgba(52,168,83,0.12);padding:1px 4px;border-radius:3px">{TEMPO}</code> e <code style="color:#81c784;background:rgba(52,168,83,0.12);padding:1px 4px;border-radius:3px">{TRANSCRICAO}</code> como variáveis.</div>
+      <textarea class="tp-prompt-textarea" id="tp-prompt-textarea">${(this._proactiveTutorMessageTemplate || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+      <button class="tp-prompt-save-btn" id="tp-prompt-save-btn">✏️ Salvar prompt</button>
+      <button class="tp-prompt-reset-btn" id="tp-prompt-reset-btn">↺ Restaurar padrão</button>
+
+      <hr class="tp-divider">
+
+      <button class="tp-stop-btn" id="tp-stop-btn">⏹ Desativar tutor</button>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Ajustar posição vertical para ficar acima do botão
+    const popupH = 580; // estimado (agora maior por causa do textarea)
+    popup.style.top = Math.max(8, rect.top - popupH - 8) + 'px';
+
+    // Fechar
+    document.getElementById('tp-close-btn').onclick = () => this.closeTutorPopup();
+
+    // Enviar agora
+    document.getElementById('tp-send-now-btn').onclick = () => {
+      this._sendProactiveTutorUpdate();
+      this._proactiveTutorNextSendAt = Date.now() + (this._proactiveTutorIntervalMs || 20000);
+      const btn = document.getElementById('tp-send-now-btn');
+      if (btn) {
+        btn.textContent = '✓ Enviado!';
+        btn.style.background = 'linear-gradient(90deg,#34a853,#2e7d32)';
+        setTimeout(() => {
+          if (btn) {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Enviar agora';
+            btn.style.background = '';
+          }
+        }, 1500);
+      }
+      showToast('📤 Prompt enviado manualmente!');
+    };
+
+    // Parar tutor
+    document.getElementById('tp-stop-btn').onclick = () => {
+      this.stopProactiveTutor();
+      showToast('⏹️ Tutor Proativo desativado.');
+    };
+
+    // Salvar novo intervalo
+    document.getElementById('tp-save-btn').onclick = () => {
+      const inp = document.getElementById('tp-interval-input');
+      const sec = parseInt(inp.value, 10);
+      if (isNaN(sec) || sec < 5) {
+        inp.style.borderColor = '#ea4335';
+        setTimeout(() => inp.style.borderColor = '', 1500);
+        return;
+      }
+      const newMs = sec * 1000;
+      this._proactiveTutorIntervalMs = newMs;
+
+      // Reiniciar o loop com novo intervalo
+      if (this._proactiveTutorInterval) {
+        clearInterval(this._proactiveTutorInterval);
+      }
+      this._proactiveTutorNextSendAt = Date.now() + newMs;
+      this._proactiveTutorInterval = setInterval(() => {
+        this._sendProactiveTutorUpdate();
+        this._proactiveTutorNextSendAt = Date.now() + this._proactiveTutorIntervalMs;
+      }, newMs);
+
+      const msg = document.getElementById('tp-saved-msg');
+      if (msg) { msg.textContent = `✓ Intervalo salvo: ${sec}s`; setTimeout(() => { msg.textContent = ''; }, 2500); }
+      showToast(`⏱️ Intervalo atualizado para ${sec} segundos.`);
+    };
+
+    // Salvar prompt personalizado
+    const defaultTemplate = `[Momento atual: {TEMPO}]\n\nTrecho da transcrição ao redor deste momento:\n{TRANSCRICAO}\n\nComece com UMA frase resumindo o que está acontecendo agora. Depois explique detalhadamente o que o autor está fazendo ou explicando neste trecho. Seja direto e não faça perguntas.`;
+
+    const promptTextarea = document.getElementById('tp-prompt-textarea');
+    if (promptTextarea && this._proactiveTutorMessageTemplate) {
+      promptTextarea.value = this._proactiveTutorMessageTemplate;
+    }
+
+    document.getElementById('tp-prompt-save-btn').onclick = () => {
+      const ta = document.getElementById('tp-prompt-textarea');
+      if (!ta) return;
+      const val = ta.value.trim();
+      if (!val) return;
+      this._proactiveTutorMessageTemplate = val;
+      const msg = document.getElementById('tp-saved-msg');
+      if (msg) { msg.textContent = '✓ Prompt salvo!'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+      showToast('✏️ Prompt do tutor atualizado!');
+    };
+
+    document.getElementById('tp-prompt-reset-btn').onclick = () => {
+      const ta = document.getElementById('tp-prompt-textarea');
+      if (ta) ta.value = defaultTemplate;
+      this._proactiveTutorMessageTemplate = defaultTemplate;
+      const msg = document.getElementById('tp-saved-msg');
+      if (msg) { msg.textContent = '✓ Prompt restaurado!'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+    };
+
+    // Countdown timer
+    this._startTutorPopupCountdown();
+
+    // Drag — arrastar pelo header
+    const header = popup.querySelector('.tp-header');
+    let isDragging = false, dragStartX = 0, dragStartY = 0, popupStartX = 0, popupStartY = 0;
+    header.addEventListener('mousedown', (e) => {
+      // Ignorar clique no botão fechar
+      if (e.target.closest('#tp-close-btn')) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      popupStartX = parseInt(popup.style.left) || 0;
+      popupStartY = parseInt(popup.style.top)  || 0;
+      document.body.style.userSelect = 'none';
+    });
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      const pw = popup.offsetWidth  || 280;
+      const ph = popup.offsetHeight || 500;
+      const newLeft = Math.max(0, Math.min(popupStartX + dx, window.innerWidth  - pw));
+      const newTop  = Math.max(0, Math.min(popupStartY + dy, window.innerHeight - ph));
+      popup.style.left = newLeft + 'px';
+      popup.style.top  = newTop  + 'px';
+    };
+    const stopDrag = () => { isDragging = false; document.body.style.userSelect = ''; };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', stopDrag);
+    // Limpar listeners quando popup for removido
+    const dragObserver = new MutationObserver(() => {
+      if (!document.getElementById('tutor-popup')) {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', stopDrag);
+        dragObserver.disconnect();
+      }
+    });
+    dragObserver.observe(document.body, { childList: true });
+  }
+
+  closeTutorPopup() {
+    if (this._tutorPopupCountdownTimer) {
+      clearInterval(this._tutorPopupCountdownTimer);
+      this._tutorPopupCountdownTimer = null;
+    }
+    const overlay = document.getElementById('tutor-popup-overlay');
+    if (overlay) overlay.remove();
+    const popup = document.getElementById('tutor-popup');
+    if (popup) popup.remove();
+  }
+
+  _startTutorPopupCountdown() {
+    if (this._tutorPopupCountdownTimer) clearInterval(this._tutorPopupCountdownTimer);
+
+    const updateDisplay = () => {
+      const countEl = document.getElementById('tp-countdown');
+      const barEl = document.getElementById('tp-countdown-bar');
+      if (!countEl || !barEl) {
+        clearInterval(this._tutorPopupCountdownTimer);
+        this._tutorPopupCountdownTimer = null;
+        return;
+      }
+
+      const totalMs = this._proactiveTutorIntervalMs || 20000;
+      const remaining = this._proactiveTutorNextSendAt ? Math.max(0, this._proactiveTutorNextSendAt - Date.now()) : 0;
+      const sec = Math.ceil(remaining / 1000);
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      countEl.textContent = `${m}:${s}`;
+      barEl.style.width = (remaining / totalMs * 100).toFixed(1) + '%';
+    };
+
+    updateDisplay();
+    this._tutorPopupCountdownTimer = setInterval(updateDisplay, 500);
+  }
+
+  _sendProactiveTutorUpdate() {
+    if (!this.proactiveTutorActive || !this._proactiveTutorSegments) return;
+
+    const video = document.querySelector('video');
+    if (!video) return;
+
+    // Se o vídeo está pausado, pular esta atualização
+    if (video.paused) {
+      console.log('[ProactiveTutor] Vídeo pausado, pulando atualização.');
+      return;
+    }
+
+    const currentTimeSec = Math.floor(video.currentTime);
+    const min = Math.floor(currentTimeSec / 60).toString().padStart(2, '0');
+    const sec = (currentTimeSec % 60).toString().padStart(2, '0');
+    const currentTimeFormatted = `${min}:${sec}`;
+
+    // Pegar mais contexto ao redor do momento atual (2 min antes, 4 min depois)
+    const windowBefore = 120; // 2 minutos antes
+    const windowAfter = 240;  // 4 minutos depois
+    const startTime = Math.max(0, currentTimeSec - windowBefore);
+    const endTime = currentTimeSec + windowAfter;
+
+    const relevantSegments = this._proactiveTutorSegments.filter(seg => {
+      return seg.start >= startTime && seg.start <= endTime;
+    });
+
+    if (relevantSegments.length === 0) {
+      console.log('[ProactiveTutor] Nenhum segmento relevante para o momento atual.');
+      return;
+    }
+
+    const contextTranscript = relevantSegments.map(seg => {
+      const totalSec = Math.floor(seg.start);
+      const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+      const s = (totalSec % 60).toString().padStart(2, '0');
+      return `[${m}:${s}] ${seg.text}`;
+    }).join('\n');
+
+    // Usar template customizável (editável no popup)
+    const defaultTemplate = `[Momento atual: {TEMPO}]
+
+Trecho da transcrição ao redor deste momento:
+{TRANSCRICAO}
+
+Comece com UMA frase resumindo o que está acontecendo agora. Depois explique detalhadamente o que o autor está fazendo ou explicando neste trecho. Seja direto e não faça perguntas.`;
+
+    if (!this._proactiveTutorMessageTemplate) {
+      this._proactiveTutorMessageTemplate = defaultTemplate;
+    }
+
+    const message = this._proactiveTutorMessageTemplate
+      .replace('{TEMPO}', currentTimeFormatted)
+      .replace('{TRANSCRICAO}', contextTranscript);
+
+    // Enviar via chrome.storage como youtubeTranscription com mode 'aistudio'
+    // O aistudio-inject.js vai pegar, preencher o textarea, clicar Talk e Run
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({
+        'youtubeTranscription': {
+          text: message,
+          timestamp: Date.now(),
+          videoId: this.currentVideoId,
+          preset: 'proactive-tutor-update',
+          mode: 'aistudio'
+        }
+      }, () => {
+        console.log(`[ProactiveTutor] Atualização enviada para AI Studio [${currentTimeFormatted}]`);
+      });
     }
   }
 
